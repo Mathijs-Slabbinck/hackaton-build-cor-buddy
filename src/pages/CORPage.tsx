@@ -46,7 +46,7 @@ const CORPage = () => {
       if (clientFilter !== 'All' && c.clientKind !== clientFilter) return false;
       return true;
     });
-  }, [activeCors, search, statusFilter, typeFilter, clientFilter]);
+  }, [companyCors, search, statusFilter, typeFilter, clientFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
