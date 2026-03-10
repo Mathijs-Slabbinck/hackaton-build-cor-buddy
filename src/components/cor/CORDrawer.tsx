@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useCOR, type COR, makeEntry } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
