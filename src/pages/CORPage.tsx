@@ -10,8 +10,10 @@ import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { exportBulkJSON, exportBulkPDF } from '@/lib/corExport';
 
 const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
