@@ -23,15 +23,14 @@ interface EmployeeContextType {
 }
 
 const SEED: Employee[] = [
-  { id: crypto.randomUUID(), fullName: "Jake Morrison", role: "Electrician", email: "jake.m@tradeco.com.au", phone: "0412 345 678", assignedProject: "Collins St Tower Fit-out", startDate: "2024-01-15", endDate: "2024-06-30", dailyRate: 480, status: "Active", companyId: "c1" },
-  { id: crypto.randomUUID(), fullName: "Sandra Pham", role: "Site Manager", email: "sandra.p@tradeco.com.au", phone: "0423 456 789", assignedProject: "George St Residential", startDate: "2024-02-01", endDate: "2024-08-15", dailyRate: 620, status: "Active", companyId: "c1" },
-  { id: crypto.randomUUID(), fullName: "Liam Chen", role: "Plumber", email: "liam.c@tradeco.com.au", phone: "0434 567 890", assignedProject: "Roma St Commercial Reno", startDate: "2024-01-08", endDate: "2024-03-31", dailyRate: 440, status: "On Leave", companyId: "c1" },
-  { id: crypto.randomUUID(), fullName: "Priya Kapoor", role: "Carpenter", email: "priya.k@tradeco.com.au", phone: "0445 678 901", assignedProject: "Harbour View Apartments", startDate: "2023-10-01", endDate: "2024-01-31", dailyRate: 390, status: "Completed", companyId: "c1" },
-  // Company c2 seed
-  { id: crypto.randomUUID(), fullName: "Derek Walsh", role: "Electrician", email: "derek.w@betaelec.com.au", phone: "0411 222 333", assignedProject: "Westfield Substation Upgrade", startDate: "2024-03-01", endDate: "2024-09-30", dailyRate: 510, status: "Active", companyId: "c2" },
-  { id: crypto.randomUUID(), fullName: "Anika Petrova", role: "HVAC Tech", email: "anika.p@betaelec.com.au", phone: "0422 333 444", assignedProject: "Parramatta Data Centre Fit-out", startDate: "2024-05-01", endDate: "", dailyRate: 490, status: "Active", companyId: "c2" },
-  { id: crypto.randomUUID(), fullName: "Marcus Obi", role: "Electrician", email: "marcus.o@betaelec.com.au", phone: "0433 444 555", assignedProject: "Bondi Beach Surf Club Rewire", startDate: "2024-02-12", endDate: "2024-05-30", dailyRate: 460, status: "Completed", companyId: "c2" },
-  { id: crypto.randomUUID(), fullName: "Tina Beaumont", role: "Site Manager", email: "tina.b@betaelec.com.au", phone: "0444 555 666", assignedProject: "Westfield Substation Upgrade", startDate: "2024-03-01", endDate: "", dailyRate: 580, status: "Active", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Thomas Maes", role: "Site Manager", email: "t.maes@alphabuild.be", phone: "0476 12 34 56", assignedProject: "Rue de la Loi Office Renovation", startDate: "2024-01-10", endDate: "", dailyRate: 580, status: "Active", companyId: "c1" },
+  { id: crypto.randomUUID(), fullName: "Isabelle Peeters", role: "Structural Engineer", email: "i.peeters@alphabuild.be", phone: "0487 23 45 67", assignedProject: "Ghent Canal Apartments — Phase 2", startDate: "2024-03-01", endDate: "", dailyRate: 640, status: "Active", companyId: "c1" },
+  { id: crypto.randomUUID(), fullName: "Nico Janssen", role: "Carpenter", email: "n.janssen@alphabuild.be", phone: "0498 34 56 78", assignedProject: "Rue de la Loi Office Renovation", startDate: "2024-01-15", endDate: "", dailyRate: 390, status: "On Leave", companyId: "c1" },
+  { id: crypto.randomUUID(), fullName: "Fatima El Ouahabi", role: "Plasterer", email: "f.elouahabi@alphabuild.be", phone: "0465 45 67 89", assignedProject: "Mechelen Logistics Hub", startDate: "2023-09-01", endDate: "2024-02-28", dailyRate: 360, status: "Completed", companyId: "c1" },
+  { id: crypto.randomUUID(), fullName: "Derek Van den Berg", role: "Electrician", email: "d.vandenberg@betaelec.be", phone: "0472 11 22 33", assignedProject: "Antwerp Port Authority HQ Rewire", startDate: "2024-03-01", endDate: "", dailyRate: 480, status: "Active", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Anika Bogaert", role: "Site Manager", email: "a.bogaert@betaelec.be", phone: "0483 22 33 44", assignedProject: "Bruges Historic Centre — Solar Install", startDate: "2024-06-01", endDate: "", dailyRate: 560, status: "Active", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Marcus Pirard", role: "Electrician", email: "m.pirard@betaelec.be", phone: "0494 33 44 55", assignedProject: "Liège Train Station — Platform Lighting", startDate: "2024-01-15", endDate: "2024-04-30", dailyRate: 440, status: "Completed", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Tine Baert", role: "Safety Officer", email: "t.baert@betaelec.be", phone: "0461 44 55 66", assignedProject: "Antwerp Port Authority HQ Rewire", startDate: "2024-03-01", endDate: "", dailyRate: 410, status: "Active", companyId: "c2" },
 ];
 
 const KEY = "cortrack_employees";

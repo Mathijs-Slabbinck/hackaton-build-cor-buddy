@@ -136,7 +136,7 @@ const CORDrawer = ({ onClose }: Props) => {
             <div className="space-y-4">
               <div><label className="label-uppercase block mb-1.5">Client Kind *</label>{segments(['Company', 'Private'], form.clientKind, v => set('clientKind', v))}</div>
               <div><label className="label-uppercase block mb-1.5">Client Name *</label><input className={inputCls('clientName')} value={form.clientName} onChange={e => set('clientName', e.target.value)} />{errors.clientName && <p className="text-destructive text-xs mt-1">{errors.clientName}</p>}</div>
-              <div><label className="label-uppercase block mb-1.5">VAT / ABN Number</label><input className={inputCls('vatNumber')} placeholder="e.g. ABN 51 123 456 789" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} /></div>
+              <div><label className="label-uppercase block mb-1.5">VAT Number</label><input className={inputCls('vatNumber')} placeholder="e.g. BE 0412.345.678" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} /></div>
             </div>
           </div>
 

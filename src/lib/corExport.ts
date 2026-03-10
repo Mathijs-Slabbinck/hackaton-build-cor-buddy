@@ -6,9 +6,9 @@ import { USERS, getCompanyName } from '@/contexts/AuthContext';
 const formatDate = (d: string) => {
   if (!d) return '—';
   const dt = new Date(d);
-  return dt.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dt.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' });
 };
-const formatEUR = (n: number) => `€${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatEUR = (n: number) => `€${n.toLocaleString('en-IE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
 
 function sanitizeCOR(c: COR) {
@@ -23,6 +23,7 @@ export function exportBulkJSON(cors: COR[], session: Session) {
     exportedAt: new Date().toISOString(),
     exportedBy: session.fullName,
     company: session.companyName,
+    currency: 'EUR',
     totalRecords: cors.length,
     cors: cors.map(sanitizeCOR),
   };
@@ -35,6 +36,7 @@ export function exportSingleJSON(cor: COR, session: Session) {
     exportedAt: new Date().toISOString(),
     exportedBy: session.fullName,
     company: session.companyName,
+    currency: 'EUR',
     cor: sanitizeCOR(cor),
   };
   downloadJSON(data, `COR-${cor.corNumber}-${today()}.json`);
@@ -88,7 +90,7 @@ export function exportBulkPDF(cors: COR[], session: Session) {
     { label: 'COR NAME', w: 55 },
     { label: 'CLIENT', w: 45 },
     { label: 'TYPE', w: 22 },
-    { label: 'TOTAL (AUD)', w: 30 },
+    { label: 'TOTAL (EUR)', w: 30 },
     { label: 'PAID %', w: 18 },
     { label: 'STATUS', w: 24 },
   ];
@@ -211,7 +213,7 @@ export function exportSinglePDF(cor: COR, session: Session) {
   const fields: [string, string][] = [
     ['Client Kind', cor.clientKind],
     ['Client Name', cor.clientName],
-    ['VAT / ABN', cor.vatNumber || '—'],
+    ['VAT Number', cor.vatNumber || '—'],
     ['Product Type', cor.productType],
     ['Product Name', cor.productName],
     ['Location', cor.location],

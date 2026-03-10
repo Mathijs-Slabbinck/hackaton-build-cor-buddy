@@ -49,7 +49,7 @@ const SectionDivider = ({ label }: { label: string }) => (
 const DIFF_FIELDS: [keyof COR, string][] = [
   ['corName', 'COR Name'], ['clientKind', 'Client Kind'], ['clientName', 'Client Name'],
   ['productName', 'Product Name'], ['productType', 'Product Type'], ['corDate', 'COR Date'],
-  ['corNumber', 'COR Number'], ['vatNumber', 'VAT / ABN'], ['vat', 'VAT %'],
+  ['corNumber', 'COR Number'], ['vatNumber', 'VAT Number'], ['vat', 'VAT %'],
   ['price', 'Price'], ['paidPercentage', 'Paid %'], ['location', 'Location'],
   ['status', 'Status'], ['projectId', 'Project'],
 ];
@@ -418,7 +418,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) =
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="label-uppercase text-[11px] mb-1">Client Kind</p><p className="text-sm">{cor.clientKind}</p></div>
                 <div><p className="label-uppercase text-[11px] mb-1">Client Name</p><p className="text-sm">{cor.clientName}</p></div>
-                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">VAT / ABN</p><p className="text-sm">{cor.vatNumber || '—'}</p></div>
+                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">VAT Number</p><p className="text-sm">{cor.vatNumber || '—'}</p></div>
               </div>
 
               <SectionDivider label="Product / Service" />
@@ -515,7 +515,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) =
               {([
                 ['corName', 'COR Name', 'text'], ['corNumber', 'COR Number', 'text'],
                 ['corDate', 'COR Date', 'date'], ['clientName', 'Client Name', 'text'],
-                ['vatNumber', 'VAT / ABN', 'text'], ['productName', 'Product Name', 'text'],
+                ['vatNumber', 'VAT Number', 'text'], ['productName', 'Product Name', 'text'],
               ] as [keyof COR, string, string][]).map(([key, label, type]) => (
                 <div key={key}>
                   <label className="label-uppercase block mb-1.5">{label}</label>

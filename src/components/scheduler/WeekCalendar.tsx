@@ -12,8 +12,8 @@ function formatWeekRange(weekStart: Date): string {
   const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
   const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
-  const startStr = weekStart.toLocaleDateString('en-AU', opts);
-  const endStr = end.toLocaleDateString('en-AU', { ...opts, year: 'numeric' });
+  const startStr = weekStart.toLocaleDateString('en-IE', opts);
+  const endStr = end.toLocaleDateString('en-IE', { ...opts, year: 'numeric' });
   return `${startStr} — ${endStr}`;
 }
 
