@@ -10,7 +10,8 @@
       "Bash(cd \"C:/Users/yolow/Documents/HOWEST/SEMESTER 3/rest/hackaton-build-cor-buddy\" && npm run build:dev 2>&1 | tail -5)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_fill_form",
-      "mcp__playwright__browser_click"
+      "mcp__playwright__browser_click",
+      "Bash(start http://localhost:8081)"
     ]
   }
 }
