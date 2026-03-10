@@ -85,10 +85,46 @@ const CORPage = () => {
 
   const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
-  const openDetail = (id: string, readOnly: boolean) => {
-    setDetailId(id);
-    setDetailReadOnly(readOnly);
+  const handleExportJSON = () => {
+    if (!session) return;
+    const toastId = toast.loading('Preparing export...');
+    try {
+      const count = exportBulkJSON(filtered, session);
+      toast.dismiss(toastId);
+      toast.success(`Exported ${count} record(s) as JSON ✓`);
+    } catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
   };
+
+  const handleExportPDF = () => {
+    if (!session) return;
+    const toastId = toast.loading('Preparing export...');
+    try {
+      const count = exportBulkPDF(filtered, session);
+      toast.dismiss(toastId);
+      toast.success(`Exported ${count} record(s) as PDF ✓`);
+    } catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
+  };
+
+  const exportButton = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={filtered.length === 0}
+          className="font-semibold rounded-lg px-4 py-2.5 text-sm border-[1.5px] border-border hover:border-primary transition-colors bg-card flex items-center gap-2 disabled:opacity-40"
+        >
+          <Download size={16} /> Export
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleExportPDF} className="gap-2">
+          <FileText size={14} /> Export as PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleExportJSON} className="gap-2">
+          <span className="text-xs font-mono">{'{ }'}</span> Export as JSON
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <AppLayout>
@@ -96,11 +132,14 @@ const CORPage = () => {
         title="Change Order Requests"
         subtitle="Manage and track all backcharge records"
         action={
-          activeTab === 'my' ? (
-            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-              <Plus size={16} /> New COR
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {exportButton}
+            {activeTab === 'my' && (
+              <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+                <Plus size={16} /> New COR
+              </button>
+            )}
+          </div>
         }
       />
 
