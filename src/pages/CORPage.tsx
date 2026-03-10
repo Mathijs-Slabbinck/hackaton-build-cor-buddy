@@ -320,14 +320,10 @@ const CORPage = () => {
                             </td>
                           <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                           <td className="px-4 py-3">
-                            {isExternal ? (
-                              <button onClick={e => { e.stopPropagation(); openDetail(c.id, true); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Eye size={14} /></button>
-                            ) : (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={e => { e.stopPropagation(); openDetail(c.id, false); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                                <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={e => { e.stopPropagation(); openDetail(c.id, false); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                              <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
