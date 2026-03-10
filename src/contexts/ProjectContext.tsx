@@ -65,6 +65,26 @@ const SEED: Project[] = [
     description: "HV switchboard replacement and conduit install.",
     companyId: "c2",
   },
+  {
+    id: crypto.randomUUID(),
+    projectName: "Bondi Beach Surf Club Rewire",
+    clientName: "Randwick City Council",
+    location: "Queen Elizabeth Dr, Bondi Beach NSW 2026",
+    startDate: "2024-02-12", endDate: "2024-05-30",
+    status: "Completed", budget: 74000, amountSpent: 68000,
+    description: "Full rewire of heritage surf club building, switchboard upgrade and emergency lighting install.",
+    companyId: "c2",
+  },
+  {
+    id: crypto.randomUUID(),
+    projectName: "Parramatta Data Centre Fit-out",
+    clientName: "NexGen Hosting Pty Ltd",
+    location: "1 Parramatta Sq, Parramatta NSW 2150",
+    startDate: "2024-05-01", endDate: "2024-11-30",
+    status: "Active", budget: 530000, amountSpent: 0,
+    description: "High-density power distribution, UPS installation and structured cabling — floors 3 and 4.",
+    companyId: "c2",
+  },
 ];
 
 const KEY = "cortrack_projects";

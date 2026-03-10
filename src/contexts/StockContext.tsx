@@ -34,6 +34,10 @@ const SEED: StockItem[] = [
   { id: crypto.randomUUID(), itemName: "Concrete Mix 20kg Bag", category: "Concrete", sku: "CON-20KG", unit: "bag", quantityOnHand: 14, reorderLevel: 20, unitCost: 9.80, supplier: "Boral Building Products", lastRestocked: "2024-02-10", assignedProject: "Roma St Commercial Reno", linkedCorId: null, damageLog: "", companyId: "c1" },
   // Company c2 seed
   { id: crypto.randomUUID(), itemName: "20mm PVC Conduit 4m", category: "Electrical", sku: "ELE-PVC-20", unit: "each", quantityOnHand: 6, reorderLevel: 10, unitCost: 11.50, supplier: "Rexel Electrical", lastRestocked: "2024-03-10", assignedProject: "Westfield Substation Upgrade", linkedCorId: null, damageLog: "", companyId: "c2" },
+  { id: crypto.randomUUID(), itemName: "Cable Tray 150mm x 3m (Galvanised)", category: "Electrical", sku: "ELE-CT150", unit: "each", quantityOnHand: 18, reorderLevel: 8, unitCost: 34.00, supplier: "Atkinsons Electrical Supplies", lastRestocked: "2024-04-10", assignedProject: "Parramatta Data Centre Fit-out", linkedCorId: null, damageLog: "", companyId: "c2" },
+  { id: crypto.randomUUID(), itemName: "Circuit Breaker 32A Single Pole", category: "Electrical", sku: "ELE-CB32S", unit: "each", quantityOnHand: 4, reorderLevel: 10, unitCost: 22.50, supplier: "Rexel Electrical", lastRestocked: "2024-03-22", assignedProject: "Westfield Substation Upgrade", linkedCorId: null, damageLog: "", companyId: "c2" },
+  { id: crypto.randomUUID(), itemName: "Electrical Insulation Tape (Black) 20m", category: "Electrical", sku: "ELE-TAPE-B", unit: "roll", quantityOnHand: 11, reorderLevel: 5, unitCost: 4.80, supplier: "Bunnings Trade", lastRestocked: "2024-04-18", assignedProject: "Bondi Beach Surf Club Rewire", linkedCorId: null, damageLog: "", companyId: "c2" },
+  { id: crypto.randomUUID(), itemName: "Safety Helmet (White, Class 1)", category: "Safety", sku: "SAF-HLM-W", unit: "each", quantityOnHand: 3, reorderLevel: 4, unitCost: 28.00, supplier: "Blackwoods Safety", lastRestocked: "2024-02-28", assignedProject: "Parramatta Data Centre Fit-out", linkedCorId: null, damageLog: "", companyId: "c2" },
 ];
 
 const KEY = "cortrack_stock";
