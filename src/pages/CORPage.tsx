@@ -214,20 +214,11 @@ const CORPage = () => {
       <div className="card-cor overflow-hidden">
         {paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
-            {activeTab === 'assigned' ? (
-              <>
-                <Share2 size={48} className="text-border mb-3" />
-                <p className="text-muted-foreground">No CORs have been shared with you.</p>
-              </>
-            ) : (
-              <>
-                <FileText size={48} className="text-border mb-3" />
-                <p className="text-muted-foreground mb-4">No CORs found</p>
-                <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-                  <Plus size={16} /> New COR
-                </button>
-              </>
-            )}
+            <FileText size={48} className="text-border mb-3" />
+            <p className="text-muted-foreground mb-4">No CORs found</p>
+            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+              <Plus size={16} /> New COR
+            </button>
           </div>
         ) : (
           <>
