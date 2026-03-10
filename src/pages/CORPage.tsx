@@ -1,20 +1,23 @@
 import { useState, useMemo } from 'react';
-import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon } from 'lucide-react';
+import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon, Users as UsersIcon } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatEUR, formatDate, PaidBar } from '@/components/SharedUI';
 import { useCOR } from '@/contexts/CORContext';
+import { useAuth } from '@/contexts/AuthContext';
 import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
 const CORPage = () => {
   const { cors, loading, deleteCOR } = useCOR();
+  const { currentUser, getUserById, getCompanyById } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -24,8 +27,14 @@ const CORPage = () => {
   const [clientFilter, setClientFilter] = useState('All');
   const [page, setPage] = useState(0);
 
+  // Filter by company
+  const companyCors = useMemo(() =>
+    cors.filter(c => c.companyId === currentUser?.companyId),
+    [cors, currentUser]
+  );
+
   const filtered = useMemo(() => {
-    return cors.filter(c => {
+    return companyCors.filter(c => {
       const q = search.toLowerCase();
       if (q && !c.corName.toLowerCase().includes(q) && !c.clientName.toLowerCase().includes(q) && !c.location.toLowerCase().includes(q)) return false;
       if (statusFilter !== 'All' && c.status !== statusFilter) return false;
@@ -33,17 +42,17 @@ const CORPage = () => {
       if (clientFilter !== 'All' && c.clientKind !== clientFilter) return false;
       return true;
     });
-  }, [cors, search, statusFilter, typeFilter, clientFilter]);
+  }, [companyCors, search, statusFilter, typeFilter, clientFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
-  const totalCors = cors.length;
-  const ongoing = cors.filter(c => c.status === 'Ongoing').length;
-  const paid = cors.filter(c => c.status === 'Paid').length;
-  const cancelled = cors.filter(c => c.status === 'Cancelled').length;
-  const totalValue = cors.reduce((s, c) => s + c.price + c.price * c.vat / 100, 0);
+  const totalCors = companyCors.length;
+  const ongoing = companyCors.filter(c => c.status === 'Ongoing').length;
+  const paid = companyCors.filter(c => c.status === 'Paid').length;
+  const cancelled = companyCors.filter(c => c.status === 'Cancelled').length;
+  const totalValue = companyCors.reduce((s, c) => s + c.price + c.price * c.vat / 100, 0);
 
   const pieData = [
     { name: 'Paid', value: paid },
@@ -95,7 +104,7 @@ const CORPage = () => {
                   <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                     {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex justify-around mt-2">
@@ -173,55 +182,102 @@ const CORPage = () => {
                     <th className="text-left px-4 py-3">Total (EUR)</th>
                     <th className="text-left px-4 py-3">Paid %</th>
                     <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><Paperclip size={12} />Attach.</span></th>
+                    <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><UsersIcon size={12} />Reviewers</span></th>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map((c, i) => {
-                    const imgCount = c.pictureUrls.length;
-                    const fileCount = c.fileUrls.length;
-                    return (
-                      <tr key={c.id} onClick={() => setDetailId(c.id)}
-                        className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
-                        <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
-                        <td className="px-4 py-3 font-medium">{c.corName}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {c.clientName}
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${c.clientKind === 'Company' ? 'bg-accent text-primary' : 'bg-blue-light text-blue'}`}>{c.clientKind}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-1.5">
-                            {c.productType === 'Service' ? <Wrench size={14} className="text-muted-foreground" /> : <PackageIcon size={14} className="text-muted-foreground" />}
-                            {c.productType}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 max-w-[160px] truncate">{c.location}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{formatDate(c.corDate)}</td>
-                        <td className="px-4 py-3 font-medium">{formatEUR(c.price + c.price * c.vat / 100)}</td>
-                        <td className="px-4 py-3 w-24"><PaidBar pct={c.paidPercentage} /></td>
-                        <td className="px-4 py-3">
-                          {imgCount === 0 && fileCount === 0 ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              {imgCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#EEF9FD', color: '#44C8F5' }}><ImageIcon size={12} />{imgCount}</span>}
-                              {fileCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent text-primary"><FileText size={12} />{fileCount}</span>}
+                  <TooltipProvider>
+                    {paged.map((c, i) => {
+                      const imgCount = c.pictureUrls.length;
+                      const fileCount = c.fileUrls.length;
+                      const externals = c.assignedExternalManagers || [];
+                      const displayExternals = externals.slice(0, 3);
+                      const remainingExternals = externals.length - 3;
+                      return (
+                        <tr key={c.id} onClick={() => setDetailId(c.id)}
+                          className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
+                          <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
+                          <td className="px-4 py-3 font-medium">{c.corName}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {c.clientName}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${c.clientKind === 'Company' ? 'bg-accent text-primary' : 'bg-blue-light text-blue'}`}>{c.clientKind}</span>
                             </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={e => { e.stopPropagation(); setDetailId(c.id); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                            <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-1.5">
+                              {c.productType === 'Service' ? <Wrench size={14} className="text-muted-foreground" /> : <PackageIcon size={14} className="text-muted-foreground" />}
+                              {c.productType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 max-w-[160px] truncate">{c.location}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{formatDate(c.corDate)}</td>
+                          <td className="px-4 py-3 font-medium">{formatEUR(c.price + c.price * c.vat / 100)}</td>
+                          <td className="px-4 py-3 w-24"><PaidBar pct={c.paidPercentage} /></td>
+                          <td className="px-4 py-3">
+                            {imgCount === 0 && fileCount === 0 ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                {imgCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#EEF9FD', color: '#44C8F5' }}><ImageIcon size={12} />{imgCount}</span>}
+                                {fileCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent text-primary"><FileText size={12} />{fileCount}</span>}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {externals.length === 0 ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <div className="flex items-center">
+                                {displayExternals.map((a, ai) => {
+                                  const user = getUserById(a.userId);
+                                  const comp = getCompanyById(a.companyId);
+                                  return (
+                                    <Tooltip key={a.userId}>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white border-2 border-white"
+                                          style={{ background: '#44C8F5', marginLeft: ai > 0 ? '-8px' : 0, zIndex: 10 - ai }}
+                                        >
+                                          {user?.avatarInitials || '??'}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>{user?.fullName} — {comp?.companyName}</p></TooltipContent>
+                                    </Tooltip>
+                                  );
+                                })}
+                                {remainingExternals > 0 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border-2 border-white bg-muted text-muted-foreground" style={{ marginLeft: '-8px', zIndex: 6 }}>
+                                        +{remainingExternals}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {externals.slice(3).map(a => {
+                                        const u = getUserById(a.userId);
+                                        const co = getCompanyById(a.companyId);
+                                        return <p key={a.userId}>{u?.fullName} — {co?.companyName}</p>;
+                                      })}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={e => { e.stopPropagation(); setDetailId(c.id); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                              <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </TooltipProvider>
                 </tbody>
               </table>
             </div>
