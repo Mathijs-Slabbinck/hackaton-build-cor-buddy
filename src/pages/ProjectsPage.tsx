@@ -6,6 +6,7 @@ import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatEUR, formatDate } from '@/components/SharedUI';
 import { useProjects, type Project } from '@/contexts/ProjectContext';
 import { useEmployees } from '@/contexts/EmployeeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ const getInitials = (name: string) => {
 const ProjectsPage = () => {
   const { projects, loading, addProject, updateProject, deleteProject } = useProjects();
   const { employees } = useEmployees();
+  const { session } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -39,18 +41,22 @@ const ProjectsPage = () => {
 
   useBodyScrollLock(modalOpen);
 
+  // Filter by company
+  const companyProjects = useMemo(() => projects.filter(p => p.companyId === session?.companyId), [projects, session]);
+  const companyEmployees = useMemo(() => employees.filter(e => e.companyId === session?.companyId), [employees, session]);
+
   const emptyForm = { projectName: '', clientName: '', location: '', startDate: '', endDate: '', budget: '', amountSpent: '0', status: 'Active' as Project['status'], description: '' };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
-    return projects.filter(p => {
+    return companyProjects.filter(p => {
       const q = search.toLowerCase();
       if (q && !p.projectName.toLowerCase().includes(q) && !p.clientName.toLowerCase().includes(q) && !p.location.toLowerCase().includes(q)) return false;
       if (statusFilter !== 'All' && p.status !== statusFilter) return false;
       return true;
     });
-  }, [projects, search, statusFilter]);
+  }, [companyProjects, search, statusFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
@@ -80,6 +86,7 @@ const ProjectsPage = () => {
       location: form.location.trim(), startDate: form.startDate, endDate: form.endDate,
       budget: Number(form.budget), amountSpent: Number(form.amountSpent) || 0,
       status: form.status, description: form.description.trim(),
+      companyId: session?.companyId || 'c1',
     };
     if (editId) updateProject(editId, data);
     else addProject(data);
@@ -93,9 +100,9 @@ const ProjectsPage = () => {
 
   if (loading) return <AppLayout><div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={40} /></div></AppLayout>;
 
-  const totalProjects = projects.length;
-  const activeCount = projects.filter(p => p.status === 'Active').length;
-  const onHoldCount = projects.filter(p => p.status === 'On Hold').length;
+  const totalProjectCount = companyProjects.length;
+  const activeCount = companyProjects.filter(p => p.status === 'Active').length;
+  const onHoldCount = companyProjects.filter(p => p.status === 'On Hold').length;
 
   const remaining = Number(form.budget || 0) - Number(form.amountSpent || 0);
 
@@ -107,7 +114,7 @@ const ProjectsPage = () => {
         action={<button onClick={openAdd} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2"><Plus size={16} /> New Project</button>} />
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <SummaryCard label="Total Projects" value={totalProjects} icon={Briefcase} iconBg="#EAF5F5" iconColor="#009A93" />
+        <SummaryCard label="Total Projects" value={totalProjectCount} icon={Briefcase} iconBg="#EAF5F5" iconColor="#009A93" />
         <SummaryCard label="Active" value={activeCount} icon={PlayCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
         <SummaryCard label="On Hold" value={onHoldCount} icon={PauseCircle} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
       </div>
@@ -152,7 +159,7 @@ const ProjectsPage = () => {
                   <TooltipProvider>
                     {paged.map((p, i) => {
                       const isOver = p.amountSpent > p.budget;
-                      const teamMembers = employees.filter(e => e.assignedProject === p.projectName);
+                      const teamMembers = companyEmployees.filter(e => e.assignedProject === p.projectName);
                       const displayAvatars = teamMembers.slice(0, 3);
                       const remainingCount = teamMembers.length - 3;
                       return (
@@ -263,7 +270,7 @@ const ProjectsPage = () => {
                 </div>
               )}
               <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>Completed</option><option>On Hold</option></select></div>
-              <div><label className="label-uppercase block mb-1.5">Description</label><textarea rows={3} className={inputCls('description')} value={form.description} onChange={e => set('description', e.target.value)} /></div>
+              <div><label className="label-uppercase block mb-1.5">Description</label><textarea className={inputCls('description')} rows={3} value={form.description} onChange={e => set('description', e.target.value)} /></div>
             </div>
             <div className="p-6 pt-0 flex justify-between">
               <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>

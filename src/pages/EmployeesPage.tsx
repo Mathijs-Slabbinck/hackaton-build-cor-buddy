@@ -6,6 +6,7 @@ import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatDate } from '@/components/SharedUI';
 import { useEmployees, type Employee } from '@/contexts/EmployeeContext';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -15,6 +16,7 @@ const roles = ['Electrician', 'Plumber', 'Plasterer', 'Carpenter', 'Site Manager
 const EmployeesPage = () => {
   const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const { projects } = useProjects();
+  const { session } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -25,21 +27,25 @@ const EmployeesPage = () => {
 
   useBodyScrollLock(modalOpen);
 
+  // Filter by company
+  const companyEmployees = useMemo(() => employees.filter(e => e.companyId === session?.companyId), [employees, session]);
+  const companyProjects = useMemo(() => projects.filter(p => p.companyId === session?.companyId), [projects, session]);
+
   const emptyForm = { fullName: '', role: '', email: '', phone: '', assignedProject: '', startDate: '', endDate: '', dailyRate: '', status: 'Active' as Employee['status'] };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const uniqueRoles = useMemo(() => [...new Set(employees.map(e => e.role))], [employees]);
+  const uniqueRoles = useMemo(() => [...new Set(companyEmployees.map(e => e.role))], [companyEmployees]);
 
   const filtered = useMemo(() => {
-    return employees.filter(e => {
+    return companyEmployees.filter(e => {
       const q = search.toLowerCase();
       if (q && !e.fullName.toLowerCase().includes(q) && !e.role.toLowerCase().includes(q) && !(e.assignedProject || '').toLowerCase().includes(q)) return false;
       if (statusFilter !== 'All' && e.status !== statusFilter) return false;
       if (roleFilter !== 'All' && e.role !== roleFilter) return false;
       return true;
     });
-  }, [employees, search, statusFilter, roleFilter]);
+  }, [companyEmployees, search, statusFilter, roleFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
@@ -70,6 +76,7 @@ const EmployeesPage = () => {
       assignedProject: form.assignedProject.trim(),
       startDate: form.startDate, endDate: form.endDate,
       dailyRate: Number(form.dailyRate), status: form.status,
+      companyId: session?.companyId || 'c1',
     };
     if (editId) updateEmployee(editId, data);
     else addEmployee(data);
@@ -86,9 +93,9 @@ const EmployeesPage = () => {
 
   if (loading) return <AppLayout><div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={40} /></div></AppLayout>;
 
-  const totalEmp = employees.length;
-  const active = employees.filter(e => e.status === 'Active').length;
-  const onLeave = employees.filter(e => e.status === 'On Leave').length;
+  const totalEmp = companyEmployees.length;
+  const active = companyEmployees.filter(e => e.status === 'Active').length;
+  const onLeave = companyEmployees.filter(e => e.status === 'On Leave').length;
 
   const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
@@ -194,7 +201,7 @@ const EmployeesPage = () => {
                 <label className="label-uppercase block mb-1.5">Assigned Project</label>
                 <select className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)}>
                   <option value="">— No project assigned —</option>
-                  {projects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
+                  {companyProjects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

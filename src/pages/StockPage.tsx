@@ -7,6 +7,7 @@ import { formatEUR, formatDate } from '@/components/SharedUI';
 import { useStock, type StockItem } from '@/contexts/StockContext';
 import { useCOR } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
@@ -19,6 +20,7 @@ const StockPage = () => {
   const { items, loading, addItem, updateItem, deleteItem } = useStock();
   const { cors } = useCOR();
   const { projects } = useProjects();
+  const { session } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -34,28 +36,33 @@ const StockPage = () => {
 
   useBodyScrollLock(modalOpen || !!linkModalId);
 
+  // Filter by company
+  const companyItems = useMemo(() => items.filter(i => i.companyId === session?.companyId), [items, session]);
+  const companyCors = useMemo(() => cors.filter(c => c.companyId === session?.companyId), [cors, session]);
+  const companyProjects = useMemo(() => projects.filter(p => p.companyId === session?.companyId), [projects, session]);
+
   const emptyForm = { itemName: '', sku: '', category: 'Fasteners', unit: 'each', quantityOnHand: '', reorderLevel: '', unitCost: '', supplier: '', lastRestocked: new Date().toISOString().split('T')[0], assignedProject: '', damageLog: '', linkedCorId: '' };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const suppliers = useMemo(() => [...new Set(items.map(i => i.supplier))], [items]);
+  const suppliers = useMemo(() => [...new Set(companyItems.map(i => i.supplier))], [companyItems]);
 
   const filtered = useMemo(() => {
-    return items.filter(i => {
+    return companyItems.filter(i => {
       const q = search.toLowerCase();
       if (q && !i.itemName.toLowerCase().includes(q) && !i.sku.toLowerCase().includes(q)) return false;
       if (catFilter !== 'All' && i.category !== catFilter) return false;
       if (supFilter !== 'All' && i.supplier !== supFilter) return false;
       return true;
     });
-  }, [items, search, catFilter, supFilter]);
+  }, [companyItems, search, catFilter, supFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
-  const lowStockCount = items.filter(i => i.quantityOnHand < i.reorderLevel).length;
-  const totalValue = items.reduce((s, i) => s + i.quantityOnHand * i.unitCost, 0);
+  const lowStockCount = companyItems.filter(i => i.quantityOnHand < i.reorderLevel).length;
+  const totalValue = companyItems.reduce((s, i) => s + i.quantityOnHand * i.unitCost, 0);
   const uniqueSuppliers = suppliers.length;
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
@@ -84,6 +91,7 @@ const StockPage = () => {
       lastRestocked: form.lastRestocked, assignedProject: form.assignedProject.trim(),
       linkedCorId: form.linkedCorId || null,
       damageLog: form.damageLog || '',
+      companyId: session?.companyId || 'c1',
     };
     if (editId) updateItem(editId, data);
     else addItem(data);
@@ -94,7 +102,7 @@ const StockPage = () => {
   const handleDelete = () => { if (deleteId) { deleteItem(deleteId); setDeleteId(null); toast.success('Item deleted'); } };
 
   const handleRestock = (id: string) => {
-    const item = items.find(i => i.id === id);
+    const item = companyItems.find(i => i.id === id);
     if (!item) return;
     updateItem(id, { quantityOnHand: item.quantityOnHand + restockQty, lastRestocked: new Date().toISOString().split('T')[0] });
     toast.success('Stock updated ✓');
@@ -120,7 +128,7 @@ const StockPage = () => {
         action={<button onClick={openAdd} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2"><Plus size={16} /> Add Item</button>} />
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <SummaryCard label="Total Items" value={items.length} icon={Package} iconBg="#EAF5F5" iconColor="#009A93" />
+        <SummaryCard label="Total Items" value={companyItems.length} icon={Package} iconBg="#EAF5F5" iconColor="#009A93" />
         <SummaryCard label="Not Enough Stock" value={lowStockCount} icon={AlertTriangle} iconBg="#FEE2E2" iconColor="#EC008C" valueColor="#EC008C" />
         <SummaryCard label="Total Stock Value" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
         <SummaryCard label="Suppliers" value={uniqueSuppliers} icon={Truck} iconBg="#fffded" iconColor="#856A00" />
@@ -179,7 +187,7 @@ const StockPage = () => {
                 <tbody>
                   {paged.map((item, i) => {
                     const isLow = item.quantityOnHand < item.reorderLevel;
-                    const linkedCor = item.linkedCorId ? cors.find(c => c.id === item.linkedCorId) : null;
+                    const linkedCor = item.linkedCorId ? companyCors.find(c => c.id === item.linkedCorId) : null;
                     return (
                       <tr key={item.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
                         <td className="px-4 py-3 font-medium">{item.itemName}</td>
@@ -274,22 +282,12 @@ const StockPage = () => {
               <div><label className="label-uppercase block mb-1.5">Supplier *</label><input className={inputCls('supplier')} value={form.supplier} onChange={e => set('supplier', e.target.value)} />{errors.supplier && <p className="text-destructive text-xs mt-1">{errors.supplier}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Last Restocked *</label><input type="date" className={inputCls('lastRestocked')} value={form.lastRestocked} onChange={e => set('lastRestocked', e.target.value)} />{errors.lastRestocked && <p className="text-destructive text-xs mt-1">{errors.lastRestocked}</p>}</div>
               <div>
-                <label className="label-uppercase block mb-1.5">Assigned Project *</label>
+                <label className="label-uppercase block mb-1.5">Project *</label>
                 <select className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)}>
                   <option value="">Select project...</option>
-                  {projects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
+                  {companyProjects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
                 </select>
                 {errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}
-              </div>
-            </div>
-            <div className="px-6 pb-4 space-y-4">
-              <p className="label-uppercase text-[11px] border-t border-border pt-3">Optional</p>
-              <div><label className="label-uppercase block mb-1.5">Damage Log</label><textarea rows={2} className={inputCls('damageLog')} placeholder="Describe why stock is being ordered..." value={form.damageLog} onChange={e => set('damageLog', e.target.value)} /></div>
-              <div><label className="label-uppercase block mb-1.5">Link to COR</label>
-                <select className={inputCls('linkedCorId')} value={form.linkedCorId} onChange={e => set('linkedCorId', e.target.value)}>
-                  <option value="">None</option>
-                  {cors.map(c => <option key={c.id} value={c.id}>{c.corNumber} — {c.corName}</option>)}
-                </select>
               </div>
             </div>
             <div className="p-6 pt-0 flex justify-between">
@@ -306,16 +304,20 @@ const StockPage = () => {
           <div className="fixed inset-0 bg-foreground/30 z-50" onClick={() => setLinkModalId(null)} />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] bg-card rounded-2xl shadow-2xl z-50">
             <div className="p-6 border-b border-border flex justify-between items-center">
-              <h2 className="text-lg font-bold">Link to COR Record</h2>
+              <h2 className="text-lg font-bold">Link to COR</h2>
               <button onClick={() => setLinkModalId(null)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div><label className="label-uppercase block mb-1.5">Damage / Order Reason</label><textarea rows={3} className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" value={linkDamageLog} onChange={e => setLinkDamageLog(e.target.value)} /></div>
-              <div><label className="label-uppercase block mb-1.5">Select COR</label>
-                <select className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" value={linkCorId} onChange={e => setLinkCorId(e.target.value)}>
-                  <option value="">Select...</option>
-                  {cors.map(c => <option key={c.id} value={c.id}>{c.corNumber} — {c.corName}</option>)}
+              <div>
+                <label className="label-uppercase block mb-1.5">Select COR</label>
+                <select className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm" value={linkCorId} onChange={e => setLinkCorId(e.target.value)}>
+                  <option value="">Choose a COR...</option>
+                  {companyCors.map(c => <option key={c.id} value={c.id}>{c.corNumber} — {c.corName}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="label-uppercase block mb-1.5">Damage / Usage Note</label>
+                <textarea className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm" rows={3} value={linkDamageLog} onChange={e => setLinkDamageLog(e.target.value)} placeholder="Optional: describe damage or usage..." />
               </div>
             </div>
             <div className="p-6 pt-0 flex justify-between">

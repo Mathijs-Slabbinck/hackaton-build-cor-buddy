@@ -28,13 +28,6 @@ export interface ActivityEntry {
   diff?: FieldDiff[];
 }
 
-export interface AssignedExternal {
-  userId: string;
-  companyId: string;
-  assignedAt: string;
-  assignedBy: string;
-}
-
 export interface COR {
   id: string;
   corName: string;
@@ -56,7 +49,7 @@ export interface COR {
   projectId?: string;
   activityLog: ActivityEntry[];
   companyId: string;
-  assignedExternalManagers: AssignedExternal[];
+  sharedWith: string[];
 }
 
 interface CORContextType {
@@ -78,7 +71,7 @@ const makeEntry = (action: ActivityAction, description: string, timestamp?: stri
 
 const SEED: COR[] = [
   {
-    id: crypto.randomUUID(), corName: "Cleanup after plasterer damage",
+    id: 'cor-seed-001', corName: "Cleanup after plasterer damage",
     clientKind: "Company", clientName: "Hargreaves Construction Pty Ltd",
     productName: "Site cleanup services", productType: "Service",
     corDate: "2024-02-15", creationDate: "2024-02-15T08:00:00.000Z",
@@ -87,11 +80,11 @@ const SEED: COR[] = [
     location: "42 George St, Sydney NSW 2000",
     status: "Paid", pictureUrls: [], fileUrls: [],
     activityLog: [makeEntry('created', 'COR created', '2024-02-15T08:00:00.000Z')],
-    companyId: 'company-alpha',
-    assignedExternalManagers: [],
+    companyId: 'c1',
+    sharedWith: ['u3', 'u4'],
   },
   {
-    id: crypto.randomUUID(), corName: "Damaged drywall rectification",
+    id: 'cor-seed-002', corName: "Damaged drywall rectification",
     clientKind: "Company", clientName: "Meridian Build Group",
     productName: "Drywall repair materials", productType: "Product",
     corDate: "2024-03-08", creationDate: "2024-03-08T08:00:00.000Z",
@@ -100,16 +93,11 @@ const SEED: COR[] = [
     location: "17 Collins St, Melbourne VIC 3000",
     status: "Ongoing", pictureUrls: [], fileUrls: [],
     activityLog: [makeEntry('created', 'COR created', '2024-03-08T08:00:00.000Z')],
-    companyId: 'company-alpha',
-    assignedExternalManagers: [{
-      userId: 'user-beta-manager',
-      companyId: 'company-beta',
-      assignedAt: '2024-03-09T10:00:00.000Z',
-      assignedBy: 'user-alpha-manager',
-    }],
+    companyId: 'c1',
+    sharedWith: [],
   },
   {
-    id: crypto.randomUUID(), corName: "Electrical conduit rerouting",
+    id: 'cor-seed-003', corName: "Electrical conduit rerouting",
     clientKind: "Private", clientName: "Thomas Nguyen",
     productName: "Conduit rerouting labour", productType: "Service",
     corDate: "2024-01-22", creationDate: "2024-01-22T08:00:00.000Z",
@@ -118,8 +106,8 @@ const SEED: COR[] = [
     location: "9 Roma St, Brisbane QLD 4000",
     status: "Cancelled", pictureUrls: [], fileUrls: [],
     activityLog: [makeEntry('created', 'COR created', '2024-01-22T08:00:00.000Z')],
-    companyId: 'company-alpha',
-    assignedExternalManagers: [],
+    companyId: 'c1',
+    sharedWith: [],
   }
 ];
 
@@ -137,8 +125,10 @@ export const CORProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCors(parsed.map((c: any) => ({
         ...c,
         activityLog: c.activityLog || [],
-        companyId: c.companyId || 'company-alpha',
-        assignedExternalManagers: c.assignedExternalManagers || [],
+        companyId: c.companyId || 'c1',
+        sharedWith: c.sharedWith || [],
+        // Remove old field if present
+        assignedExternalManagers: undefined,
       })));
     }
     else { setCors(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }

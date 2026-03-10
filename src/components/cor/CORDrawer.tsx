@@ -22,7 +22,7 @@ const segments = (options: string[], value: string, onChange: (v: string) => voi
 const CORDrawer = ({ onClose }: Props) => {
   const { cors, addCOR } = useCOR();
   const { projects } = useProjects();
-  const { currentUser } = useAuth();
+  const { session } = useAuth();
   const [form, setForm] = useState({
     corName: '', corNumber: '', corDate: new Date().toISOString().split('T')[0],
     status: 'Ongoing' as COR['status'], clientKind: 'Company' as COR['clientKind'],
@@ -42,6 +42,9 @@ const CORDrawer = ({ onClose }: Props) => {
   const paidPct = total > 0 ? Math.min((amountPaid / total) * 100, 100) : 0;
   const overpaid = amountPaid > total && total > 0;
 
+  // Filter projects by company
+  const companyProjects = projects.filter(p => p.companyId === session?.companyId);
+
   useEffect(() => {
     if (total > 0 && amountPaid >= total) {
       setForm(f => ({ ...f, status: 'Paid' }));
@@ -55,7 +58,7 @@ const CORDrawer = ({ onClose }: Props) => {
   const set = (k: string, v: string | number) => setForm(f => ({ ...f, [k]: v }));
 
   const handleProjectChange = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = companyProjects.find(p => p.id === projectId);
     setForm(f => ({ ...f, projectId, location: project?.location || f.location }));
   };
 
@@ -90,8 +93,8 @@ const CORDrawer = ({ onClose }: Props) => {
       paidPercentage: Math.round(paidPct * 10) / 10,
       pictureUrls: [], fileUrls: [],
       activityLog: [makeEntry('created', 'COR created')],
-      companyId: currentUser?.companyId || 'company-alpha',
-      assignedExternalManagers: [],
+      companyId: session?.companyId || 'c1',
+      sharedWith: [],
     };
     addCOR(cor);
     toast.success('COR saved successfully ✓');
@@ -114,7 +117,6 @@ const CORDrawer = ({ onClose }: Props) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Section 1 */}
           <div>
             <p className="label-uppercase text-[11px] mb-3 border-b border-border pb-2">Record Info</p>
             <div className="space-y-4">
@@ -129,7 +131,6 @@ const CORDrawer = ({ onClose }: Props) => {
             </div>
           </div>
 
-          {/* Section 2 */}
           <div>
             <p className="label-uppercase text-[11px] mb-3 border-b border-border pb-2">Client Details</p>
             <div className="space-y-4">
@@ -139,7 +140,6 @@ const CORDrawer = ({ onClose }: Props) => {
             </div>
           </div>
 
-          {/* Section 3 */}
           <div>
             <p className="label-uppercase text-[11px] mb-3 border-b border-border pb-2">Product / Service</p>
             <div className="space-y-4">
@@ -149,7 +149,7 @@ const CORDrawer = ({ onClose }: Props) => {
                 <label className="label-uppercase block mb-1.5">Project *</label>
                 <select className={inputCls('projectId')} value={form.projectId} onChange={e => handleProjectChange(e.target.value)}>
                   <option value="">Select a project...</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
+                  {companyProjects.map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
                 </select>
                 {errors.projectId && <p className="text-destructive text-xs mt-1">{errors.projectId}</p>}
               </div>
@@ -157,7 +157,6 @@ const CORDrawer = ({ onClose }: Props) => {
             </div>
           </div>
 
-          {/* Section 4 */}
           <div>
             <p className="label-uppercase text-[11px] mb-3 border-b border-border pb-2">Financials</p>
             <div className="space-y-4">

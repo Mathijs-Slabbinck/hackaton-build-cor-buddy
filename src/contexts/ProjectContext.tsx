@@ -11,6 +11,7 @@ export interface Project {
   budget: number;
   amountSpent: number;
   description: string;
+  companyId: string;
 }
 
 interface ProjectContextType {
@@ -30,7 +31,8 @@ const SEED: Project[] = [
     location: "Collins St, Melbourne VIC 3000",
     startDate: "2024-01-15", endDate: "2024-06-30",
     status: "Active", budget: 480000, amountSpent: 510000,
-    description: "Full electrical and mechanical fit-out, levels 12–18."
+    description: "Full electrical and mechanical fit-out, levels 12–18.",
+    companyId: "c1",
   },
   {
     id: crypto.randomUUID(),
@@ -39,7 +41,8 @@ const SEED: Project[] = [
     location: "42 George St, Sydney NSW 2000",
     startDate: "2024-02-01", endDate: "2024-08-15",
     status: "Active", budget: 320000, amountSpent: 275000,
-    description: "12-unit residential build, structural and fit-out works."
+    description: "12-unit residential build, structural and fit-out works.",
+    companyId: "c1",
   },
   {
     id: crypto.randomUUID(),
@@ -48,7 +51,19 @@ const SEED: Project[] = [
     location: "9 Roma St, Brisbane QLD 4000",
     startDate: "2023-10-01", endDate: "2024-03-31",
     status: "Completed", budget: 95000, amountSpent: 91000,
-    description: "Office strip-out and refit, ground floor only."
+    description: "Office strip-out and refit, ground floor only.",
+    companyId: "c1",
+  },
+  // Company c2 seed
+  {
+    id: crypto.randomUUID(),
+    projectName: "Westfield Substation Upgrade",
+    clientName: "Westfield Group",
+    location: "500 Oxford St, Bondi Junction NSW 2022",
+    startDate: "2024-03-01", endDate: "2024-09-30",
+    status: "Active", budget: 210000, amountSpent: 0,
+    description: "HV switchboard replacement and conduit install.",
+    companyId: "c2",
   },
 ];
 
@@ -63,7 +78,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      setProjects(parsed.map((p: any) => ({ ...p, amountSpent: p.amountSpent ?? 0 })));
+      setProjects(parsed.map((p: any) => ({ ...p, amountSpent: p.amountSpent ?? 0, companyId: p.companyId || 'c1' })));
     }
     else { setProjects(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }
     setLoading(false);
