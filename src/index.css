@@ -90,6 +90,9 @@
   .status-completed {
     @apply bg-muted text-muted-foreground text-xs px-2.5 py-0.5 rounded-full font-semibold;
   }
+  .status-inactive {
+    @apply bg-gray-100 text-gray-500 text-xs px-2.5 py-0.5 rounded-full font-semibold;
+  }
   .status-lowstock {
     @apply bg-red-100 text-destructive font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
