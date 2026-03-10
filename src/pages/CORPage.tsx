@@ -85,6 +85,11 @@ const CORPage = () => {
 
   const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
+  const openDetail = (id: string, readOnly: boolean) => {
+    setDetailId(id);
+    setDetailReadOnly(readOnly);
+  };
+
   const handleExportJSON = () => {
     if (!session) return;
     const toastId = toast.loading('Preparing export...');
