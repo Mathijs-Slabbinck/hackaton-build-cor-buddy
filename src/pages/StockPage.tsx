@@ -3,7 +3,7 @@ import { Package, AlertTriangle, DollarSign, Truck, Search, Pencil, Trash2, Plus
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
-import { formatAUD, formatDate } from '@/components/SharedUI';
+import { formatEUR, formatDate } from '@/components/SharedUI';
 import { useStock, type StockItem } from '@/contexts/StockContext';
 import { useCOR } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
@@ -54,7 +54,7 @@ const StockPage = () => {
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
-  const lowStockCount = items.filter(i => i.quantityOnHand <= i.reorderLevel).length;
+  const lowStockCount = items.filter(i => i.quantityOnHand < i.reorderLevel).length;
   const totalValue = items.reduce((s, i) => s + i.quantityOnHand * i.unitCost, 0);
   const uniqueSuppliers = suppliers.length;
 
@@ -122,7 +122,7 @@ const StockPage = () => {
       <div className="grid grid-cols-4 gap-4 mb-6">
         <SummaryCard label="Total Items" value={items.length} icon={Package} iconBg="#EAF5F5" iconColor="#009A93" />
         <SummaryCard label="Not Enough Stock" value={lowStockCount} icon={AlertTriangle} iconBg="#FEE2E2" iconColor="#EC008C" valueColor="#EC008C" />
-        <SummaryCard label="Total Stock Value" value={formatAUD(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
+        <SummaryCard label="Total Stock Value" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
         <SummaryCard label="Suppliers" value={uniqueSuppliers} icon={Truck} iconBg="#fffded" iconColor="#856A00" />
       </div>
 
@@ -169,22 +169,34 @@ const StockPage = () => {
                 </tr></thead>
                 <tbody>
                   {paged.map((item, i) => {
-                    const isLow = item.quantityOnHand <= item.reorderLevel;
+                    const isLow = item.quantityOnHand < item.reorderLevel;
                     const linkedCor = item.linkedCorId ? cors.find(c => c.id === item.linkedCorId) : null;
                     return (
                       <tr key={item.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
                         <td className="px-4 py-3 font-medium">{item.itemName}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{item.sku}</td>
-                        <td className="px-4 py-3">{item.category}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs text-muted-foreground">{item.sku}</span>
+                          <span className="block text-[11px] text-muted-foreground">SKU</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.category}
+                          <span className="block text-[11px] text-muted-foreground">category</span>
+                        </td>
                         <td className="px-4 py-3">
                           <span className={isLow ? 'text-destructive font-bold' : ''}>{item.quantityOnHand}</span>
                           {isLow && <span className="status-lowstock ml-2">Not enough</span>}
                         </td>
                         <td className="px-4 py-3">{item.reorderLevel}</td>
-                        <td className="px-4 py-3">{item.unit}</td>
-                        <td className="px-4 py-3">{formatAUD(item.unitCost)}</td>
-                        <td className="px-4 py-3 font-medium">{formatAUD(item.quantityOnHand * item.unitCost)}</td>
-                        <td className="px-4 py-3 max-w-[120px] truncate">{item.supplier}</td>
+                        <td className="px-4 py-3">
+                          {item.unit}
+                          <span className="block text-[11px] text-muted-foreground">unit</span>
+                        </td>
+                        <td className="px-4 py-3">{formatEUR(item.unitCost)}</td>
+                        <td className="px-4 py-3 font-medium">{formatEUR(item.quantityOnHand * item.unitCost)}</td>
+                        <td className="px-4 py-3 max-w-[120px] truncate">
+                          {item.supplier}
+                          <span className="block text-[11px] text-muted-foreground">supplier</span>
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDate(item.lastRestocked)}</td>
                         <td className="px-4 py-3 max-w-[120px] truncate">{item.assignedProject}</td>
                         <td className="px-4 py-3">
@@ -249,7 +261,7 @@ const StockPage = () => {
               <div><label className="label-uppercase block mb-1.5">Unit *</label><select className={inputCls('unit')} value={form.unit} onChange={e => set('unit', e.target.value)}>{units.map(u => <option key={u}>{u}</option>)}</select></div>
               <div><label className="label-uppercase block mb-1.5">Qty on Hand *</label><input type="number" min={0} className={inputCls('quantityOnHand')} value={form.quantityOnHand} onChange={e => set('quantityOnHand', e.target.value)} />{errors.quantityOnHand && <p className="text-destructive text-xs mt-1">{errors.quantityOnHand}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Reorder Level *</label><input type="number" min={0} className={inputCls('reorderLevel')} value={form.reorderLevel} onChange={e => set('reorderLevel', e.target.value)} />{errors.reorderLevel && <p className="text-destructive text-xs mt-1">{errors.reorderLevel}</p>}</div>
-              <div><label className="label-uppercase block mb-1.5">Unit Cost AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} step={0.01} className={`${inputCls('unitCost')} pl-7`} value={form.unitCost} onChange={e => set('unitCost', e.target.value)} /></div>{errors.unitCost && <p className="text-destructive text-xs mt-1">{errors.unitCost}</p>}</div>
+              <div><label className="label-uppercase block mb-1.5">Unit Cost EUR *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} step={0.01} className={`${inputCls('unitCost')} pl-7`} value={form.unitCost} onChange={e => set('unitCost', e.target.value)} /></div>{errors.unitCost && <p className="text-destructive text-xs mt-1">{errors.unitCost}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Supplier *</label><input className={inputCls('supplier')} value={form.supplier} onChange={e => set('supplier', e.target.value)} />{errors.supplier && <p className="text-destructive text-xs mt-1">{errors.supplier}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Last Restocked *</label><input type="date" className={inputCls('lastRestocked')} value={form.lastRestocked} onChange={e => set('lastRestocked', e.target.value)} />{errors.lastRestocked && <p className="text-destructive text-xs mt-1">{errors.lastRestocked}</p>}</div>
               <div>

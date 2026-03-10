@@ -9,6 +9,7 @@ export interface Project {
   endDate: string;
   status: 'Active' | 'Completed' | 'On Hold';
   budget: number;
+  amountSpent: number;
   description: string;
 }
 
@@ -28,7 +29,7 @@ const SEED: Project[] = [
     clientName: "Hargreaves Construction Pty Ltd",
     location: "Collins St, Melbourne VIC 3000",
     startDate: "2024-01-15", endDate: "2024-06-30",
-    status: "Active", budget: 480000,
+    status: "Active", budget: 480000, amountSpent: 510000,
     description: "Full electrical and mechanical fit-out, levels 12–18."
   },
   {
@@ -37,7 +38,7 @@ const SEED: Project[] = [
     clientName: "Meridian Build Group",
     location: "42 George St, Sydney NSW 2000",
     startDate: "2024-02-01", endDate: "2024-08-15",
-    status: "Active", budget: 320000,
+    status: "Active", budget: 320000, amountSpent: 275000,
     description: "12-unit residential build, structural and fit-out works."
   },
   {
@@ -46,7 +47,7 @@ const SEED: Project[] = [
     clientName: "Thomas Nguyen",
     location: "9 Roma St, Brisbane QLD 4000",
     startDate: "2023-10-01", endDate: "2024-03-31",
-    status: "Completed", budget: 95000,
+    status: "Completed", budget: 95000, amountSpent: 91000,
     description: "Office strip-out and refit, ground floor only."
   },
 ];
@@ -60,7 +61,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     const raw = localStorage.getItem(KEY);
-    if (raw) setProjects(JSON.parse(raw));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      setProjects(parsed.map((p: any) => ({ ...p, amountSpent: p.amountSpent ?? 0 })));
+    }
     else { setProjects(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }
     setLoading(false);
   }, []);

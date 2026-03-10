@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { useCOR, type COR } from '@/contexts/CORContext';
+import { useCOR, type COR, makeEntry } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -87,6 +87,7 @@ const CORDrawer = ({ onClose }: Props) => {
       price: Number(form.price), vat: Number(form.vat),
       paidPercentage: Math.round(paidPct * 10) / 10,
       pictureUrls: [], fileUrls: [],
+      activityLog: [makeEntry('created', 'COR created')],
     };
     addCOR(cor);
     toast.success('COR saved successfully ✓');
@@ -156,12 +157,12 @@ const CORDrawer = ({ onClose }: Props) => {
           <div>
             <p className="label-uppercase text-[11px] mb-3 border-b border-border pb-2">Financials</p>
             <div className="space-y-4">
-              <div><label className="label-uppercase block mb-1.5">Price AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} step={0.01} className={`${inputCls('price')} pl-7`} value={form.price} onChange={e => set('price', e.target.value)} /></div>{errors.price && <p className="text-destructive text-xs mt-1">{errors.price}</p>}</div>
+              <div><label className="label-uppercase block mb-1.5">Price EUR *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} step={0.01} className={`${inputCls('price')} pl-7`} value={form.price} onChange={e => set('price', e.target.value)} /></div>{errors.price && <p className="text-destructive text-xs mt-1">{errors.price}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">VAT % *</label><div className="relative"><input type="number" min={0} max={100} className={`${inputCls('vat')} pr-7`} value={form.vat} onChange={e => set('vat', e.target.value)} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span></div>{errors.vat && <p className="text-destructive text-xs mt-1">{errors.vat}</p>}</div>
               <div>
-                <label className="label-uppercase block mb-1.5">Amount Paid AUD</label>
+                <label className="label-uppercase block mb-1.5">Amount Paid EUR</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
                   <input type="number" min={0} step={0.01} placeholder="0.00" className={`${inputCls('amountPaid')} pl-7`} value={form.amountPaid} onChange={e => set('amountPaid', e.target.value)} />
                 </div>
                 {overpaid && <p className="text-destructive text-xs mt-1">Paid amount cannot exceed total</p>}
@@ -172,7 +173,7 @@ const CORDrawer = ({ onClose }: Props) => {
               </div>
               <div className="bg-accent rounded-xl p-4">
                 <p className="label-uppercase text-[11px] mb-1">Total incl. VAT</p>
-                <p className="text-xl font-bold text-primary">${total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xl font-bold text-primary">€{total.toLocaleString('en-IE', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
