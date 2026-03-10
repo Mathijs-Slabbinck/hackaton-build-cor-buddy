@@ -236,7 +236,7 @@ const CORPage = () => {
                     <th className="text-left px-4 py-3">Total (EUR)</th>
                     <th className="text-left px-4 py-3">Paid %</th>
                     <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><Paperclip size={12} />Attach.</span></th>
-                    {activeTab === 'my' && <th className="text-left px-4 py-3">Shared</th>}
+                    <th className="text-left px-4 py-3">Shared</th>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Actions</th>
                   </tr>
