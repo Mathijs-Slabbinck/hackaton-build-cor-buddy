@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
-import { useCOR, type COR, type FieldDiff, makeEntry } from '@/contexts/CORContext';
+import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp, Users as UsersIcon, UserPlus } from 'lucide-react';
+import { useCOR, type COR, type FieldDiff, type AssignedExternal, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge, formatEUR, formatDate, PaidBar, relativeTime } from '@/components/SharedUI';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -75,7 +76,8 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
   const { items: stockItems } = useStock();
   const { projects } = useProjects();
-  const [tab, setTab] = useState<'details' | 'files' | 'activity'>('details');
+  const { currentUser, users, companies, getUserById, getCompanyById, isOwner, isManager } = useAuth();
+  const [tab, setTab] = useState<'details' | 'files' | 'access' | 'activity'>('details');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<COR> & { amountPaid?: number }>({});
   const [extracting, setExtracting] = useState(false);
@@ -85,6 +87,10 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const [autoStatusNote, setAutoStatusNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [removeAccessId, setRemoveAccessId] = useState<string | null>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -134,23 +140,20 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     const updates: Partial<COR> = { ...form, paidPercentage: Math.round(editPaidPct * 10) / 10 };
     delete (updates as any).amountPaid;
 
-    // Compute diffs
     const diffs = computeDiff(cor, updates);
     if (diffs.length === 0) {
       setEditing(false);
-      return; // Nothing changed
+      return;
     }
 
     const entries = [...activityLog];
     const statusChanged = form.status && form.status !== cor.status;
     
-    // Add 'updated' entry with diffs (excluding status diff if status changed separately)
     const updateDiffs = statusChanged ? diffs.filter(d => d.field !== 'Status') : diffs;
     if (updateDiffs.length > 0) {
       entries.push({ ...makeEntry('updated', 'Record updated'), diff: updateDiffs });
     }
     
-    // Add separate status_changed entry
     if (statusChanged) {
       const statusDiff = diffs.filter(d => d.field === 'Status');
       entries.push({ ...makeEntry('status_changed', `Status changed to ${form.status}`), diff: statusDiff });
@@ -252,7 +255,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
         lineItem: parsed.lineItem || '',
       });
       setExtractEditable(false);
-      // Merged: bill_extracted log
       const currentCor = getCORById(corId);
       if (currentCor) {
         const newLog = [...(currentCor.activityLog || []), makeEntry('bill_extracted', 'Bill data extracted from PDF')];
@@ -332,9 +334,59 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     });
   };
 
+  // Access tab logic
+  const canManageAccess = isOwner() || isManager();
+  const assignedExternals = cor.assignedExternalManagers || [];
+  const otherCompanies = companies.filter(c => c.id !== currentUser?.companyId);
+  const selectedCompanyUsers = selectedCompanyId
+    ? users.filter(u => u.companyId === selectedCompanyId && (u.role === 'manager' || u.role === 'owner' || u.role === 'external_manager') && u.isActive)
+    : [];
+  const selectedUser = selectedUserId ? getUserById(selectedUserId) : undefined;
+  const selectedCompany = selectedCompanyId ? getCompanyById(selectedCompanyId) : undefined;
+  const isAlreadyAssigned = (userId: string) => assignedExternals.some(a => a.userId === userId);
+
+  const handleAssignExternal = () => {
+    if (!selectedUserId || !selectedCompanyId || !currentUser) return;
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    const user = getUserById(selectedUserId);
+    const comp = getCompanyById(selectedCompanyId);
+    
+    const newAssignment: AssignedExternal = {
+      userId: selectedUserId,
+      companyId: selectedCompanyId,
+      assignedAt: new Date().toISOString(),
+      assignedBy: currentUser.id,
+    };
+    
+    const newExternals = [...(currentCor.assignedExternalManagers || []), newAssignment];
+    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `${user?.fullName || 'User'} from ${comp?.companyName || 'company'} granted external reviewer access`)];
+    updateCOR(corId, { assignedExternalManagers: newExternals, activityLog: newLog });
+    
+    toast.success(`${user?.fullName} can now view this record ✓`);
+    setAssignModalOpen(false);
+    setSelectedCompanyId('');
+    setSelectedUserId('');
+  };
+
+  const handleRemoveExternal = (userId: string) => {
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    const user = getUserById(userId);
+    const ext = assignedExternals.find(a => a.userId === userId);
+    const comp = ext ? getCompanyById(ext.companyId) : undefined;
+    
+    const newExternals = (currentCor.assignedExternalManagers || []).filter(a => a.userId !== userId);
+    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `${user?.fullName || 'User'} from ${comp?.companyName || 'company'} removed as external reviewer`)];
+    updateCOR(corId, { assignedExternalManagers: newExternals, activityLog: newLog });
+    setRemoveAccessId(null);
+    toast.success('Access removed');
+  };
+
   const tabs = [
     { key: 'details', label: 'Details' },
     { key: 'files', label: 'Files & Images' },
+    { key: 'access', label: 'Access' },
     { key: 'activity', label: 'Activity' },
   ] as const;
 
@@ -357,7 +409,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
             {tabs.map(t => (
               <button key={t.key} onClick={() => { setTab(t.key); setEditing(false); }}
                 className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                {t.label}
+                {t.key === 'access' ? <span className="flex items-center gap-1"><UsersIcon size={12} />{t.label}</span> : t.label}
               </button>
             ))}
           </div>
@@ -575,6 +627,46 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
             </div>
           )}
 
+          {tab === 'access' && (
+            <div>
+              <h3 className="font-bold text-base mb-4">Assigned External Reviewers</h3>
+              
+              {assignedExternals.length === 0 ? (
+                <p className="text-sm text-muted-foreground mb-4">No external reviewers assigned.</p>
+              ) : (
+                <div className="space-y-3 mb-4">
+                  {assignedExternals.map(a => {
+                    const user = getUserById(a.userId);
+                    const comp = getCompanyById(a.companyId);
+                    return (
+                      <div key={a.userId} className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#009A93' }}>
+                          {user?.avatarInitials || '??'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold">{user?.fullName || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{comp?.companyName || 'Unknown company'}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Assigned {relativeTime(a.assignedAt)}</span>
+                        {canManageAccess && (
+                          <button onClick={() => setRemoveAccessId(a.userId)} className="text-destructive hover:bg-red-100 p-1 rounded transition-colors">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {canManageAccess && (
+                <button onClick={() => { setAssignModalOpen(true); setSelectedCompanyId(''); setSelectedUserId(''); }} className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">
+                  <UserPlus size={16} /> Assign External Reviewer
+                </button>
+              )}
+            </div>
+          )}
+
           {tab === 'activity' && (
             <div>
               {/* Add note */}
@@ -603,15 +695,12 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                     const isExpanded = expandedDiffs.has(entry.id);
                     return (
                       <div key={entry.id} className="flex gap-3 relative">
-                        {/* Timeline line */}
                         {i < sortedLog.length - 1 && (
                           <div className="absolute left-4 top-8 bottom-0 w-px bg-border" />
                         )}
-                        {/* Icon */}
                         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10" style={{ background: config.color + '20' }}>
                           <IconComp size={14} style={{ color: config.color }} />
                         </div>
-                        {/* Content */}
                         <div className="pb-5 min-w-0 flex-1">
                           <p className="text-sm font-semibold">{entry.description}</p>
                           <p className="text-xs text-muted-foreground">{entry.actor} · {relativeTime(entry.timestamp)}</p>
@@ -662,6 +751,84 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
           )}
         </div>
       </div>
+
+      {/* Assign External Modal */}
+      {assignModalOpen && (
+        <>
+          <div className="fixed inset-0 bg-foreground/30 z-[60]" onClick={() => setAssignModalOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[480px] bg-card rounded-2xl shadow-2xl z-[60] max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border flex justify-between items-center">
+              <h2 className="text-lg font-bold">Assign External Reviewer</h2>
+              <button onClick={() => setAssignModalOpen(false)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="label-uppercase block mb-1.5">Responsible company</label>
+                <select className={inputCls} value={selectedCompanyId} onChange={e => { setSelectedCompanyId(e.target.value); setSelectedUserId(''); }}>
+                  <option value="">Select a company...</option>
+                  {otherCompanies.map(c => (
+                    <option key={c.id} value={c.id}>{c.companyName} — {c.industry}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedCompanyId && (
+                <div>
+                  <label className="label-uppercase block mb-1.5">Select manager from {selectedCompany?.companyName}</label>
+                  <div className="space-y-2">
+                    {selectedCompanyUsers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No eligible users in this company.</p>
+                    ) : (
+                      selectedCompanyUsers.map(u => {
+                        const already = isAlreadyAssigned(u.id);
+                        return (
+                          <label key={u.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${already ? 'opacity-50 cursor-not-allowed border-border' : selectedUserId === u.id ? 'border-primary bg-accent' : 'border-border hover:border-primary'}`}>
+                            <input type="radio" name="extUser" value={u.id} checked={selectedUserId === u.id} disabled={already} onChange={() => setSelectedUserId(u.id)} className="sr-only" />
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#009A93' }}>
+                              {u.avatarInitials}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{u.fullName}</p>
+                              {already && <p className="text-xs text-muted-foreground">Already assigned</p>}
+                            </div>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${u.role === 'owner' ? 'bg-accent text-primary' : 'text-[#44C8F5]'}`} style={u.role !== 'owner' ? { background: '#EEF9FD' } : undefined}>
+                              {u.role === 'owner' ? 'Owner' : u.role === 'manager' ? 'Manager' : 'External'}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedUser && !isAlreadyAssigned(selectedUserId) && (
+                <div className="rounded-[10px] p-3 text-[13px]" style={{ background: 'hsl(56 100% 97%)' }}>
+                  <strong>{selectedUser.fullName}</strong> from <strong>{selectedCompany?.companyName}</strong> will be able to view this COR record, all attachments, and add notes. They will not be able to edit any data.
+                </div>
+              )}
+            </div>
+            <div className="p-6 pt-0 flex justify-between">
+              <button onClick={() => setAssignModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
+              <button onClick={handleAssignExternal} disabled={!selectedUserId || isAlreadyAssigned(selectedUserId)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors disabled:opacity-50">Assign Access</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Remove access confirmation */}
+      <AlertDialog open={!!removeAccessId} onOpenChange={open => !open && setRemoveAccessId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove access for {removeAccessId ? getUserById(removeAccessId)?.fullName : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>They will no longer be able to view this COR record.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => removeAccessId && handleRemoveExternal(removeAccessId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

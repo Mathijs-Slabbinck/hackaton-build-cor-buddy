@@ -1,25 +1,34 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { session, login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (localStorage.getItem('cortrack_auth') === 'true') return <Navigate to="/cor" replace />;
+  if (session) {
+    return <Navigate to={session.role === 'external_manager' ? '/my-cors' : '/cor'} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    if (username === 'admin' && password === 'admin') {
-      localStorage.setItem('cortrack_auth', 'true');
-      navigate('/cor');
+    await new Promise(r => setTimeout(r, 400));
+    const success = login(username, password);
+    if (success) {
+      // Re-read session to determine redirect
+      const rawS = localStorage.getItem('cortrack_session');
+      if (rawS) {
+        const sess = JSON.parse(rawS);
+        navigate(sess.role === 'external_manager' ? '/my-cors' : '/cor');
+      }
     } else {
       setError('Invalid username or password');
     }
@@ -36,7 +45,7 @@ const LoginPage = () => {
           </div>
           <span className="font-bold text-[22px]">track</span>
         </div>
-        <p className="text-center text-sm text-muted-foreground mb-8">Construction backcharge management</p>
+        <p className="text-center text-sm text-muted-foreground mb-8">Sign in to your company workspace</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -71,7 +80,13 @@ const LoginPage = () => {
           {error && <p className="text-destructive text-sm text-center">{error}</p>}
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">Demo credentials: admin / admin</p>
+        <div className="mt-6 rounded-[10px] p-3 text-[12px] leading-relaxed" style={{ background: 'hsl(177 33% 94%)', color: '#009A93' }}>
+          <p className="font-semibold mb-1">Demo accounts:</p>
+          <p><strong>admin</strong> / admin — Owner (Alpha Build Group)</p>
+          <p><strong>maria</strong> / maria123 — Manager (Alpha Build Group)</p>
+          <p><strong>ben</strong> / ben123 — Owner (Beta Electrical Services)</p>
+          <p><strong>sophie</strong> / sophie123 — External Manager (Beta Electrical)</p>
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useCOR, type COR, makeEntry } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
@@ -21,6 +22,7 @@ const segments = (options: string[], value: string, onChange: (v: string) => voi
 const CORDrawer = ({ onClose }: Props) => {
   const { cors, addCOR } = useCOR();
   const { projects } = useProjects();
+  const { currentUser } = useAuth();
   const [form, setForm] = useState({
     corName: '', corNumber: '', corDate: new Date().toISOString().split('T')[0],
     status: 'Ongoing' as COR['status'], clientKind: 'Company' as COR['clientKind'],
@@ -88,6 +90,8 @@ const CORDrawer = ({ onClose }: Props) => {
       paidPercentage: Math.round(paidPct * 10) / 10,
       pictureUrls: [], fileUrls: [],
       activityLog: [makeEntry('created', 'COR created')],
+      companyId: currentUser?.companyId || 'company-alpha',
+      assignedExternalManagers: [],
     };
     addCOR(cor);
     toast.success('COR saved successfully ✓');
