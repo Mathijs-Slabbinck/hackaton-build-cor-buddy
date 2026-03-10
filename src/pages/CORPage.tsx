@@ -120,20 +120,32 @@ const CORPage = () => {
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="relative min-w-[280px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input placeholder="Search by name, client, location..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
-            className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Search</span>
+          <div className="relative min-w-[280px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input placeholder="Search by name, client, location..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+          </div>
         </div>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className={selectClasses}>
-          <option>All</option><option>Paid</option><option>Ongoing</option><option>Cancelled</option>
-        </select>
-        <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(0); }} className={selectClasses}>
-          <option>All</option><option>Service</option><option>Product</option>
-        </select>
-        <select value={clientFilter} onChange={e => { setClientFilter(e.target.value); setPage(0); }} className={selectClasses}>
-          <option>All</option><option>Company</option><option>Private</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</span>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option><option>Paid</option><option>Ongoing</option><option>Cancelled</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Type</span>
+          <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option><option>Service</option><option>Product</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Client</span>
+          <select value={clientFilter} onChange={e => { setClientFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option><option>Company</option><option>Private</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare } from 'lucide-react';
-import { useCOR, type COR, makeEntry } from '@/contexts/CORContext';
+import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { useCOR, type COR, type FieldDiff, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
 import { StatusBadge, formatEUR, formatDate, PaidBar, relativeTime } from '@/components/SharedUI';
@@ -42,6 +42,35 @@ const SectionDivider = ({ label }: { label: string }) => (
   </div>
 );
 
+const DIFF_FIELDS: [keyof COR, string][] = [
+  ['corName', 'COR Name'], ['clientKind', 'Client Kind'], ['clientName', 'Client Name'],
+  ['productName', 'Product Name'], ['productType', 'Product Type'], ['corDate', 'COR Date'],
+  ['corNumber', 'COR Number'], ['vatNumber', 'VAT / ABN'], ['vat', 'VAT %'],
+  ['price', 'Price'], ['paidPercentage', 'Paid %'], ['location', 'Location'],
+  ['status', 'Status'], ['projectId', 'Project'],
+];
+
+const fieldToString = (key: keyof COR, value: any): string => {
+  if (value == null || value === '') return '—';
+  if (key === 'price') return formatEUR(Number(value));
+  if (key === 'paidPercentage') return `${Number(value).toFixed(1)}%`;
+  if (key === 'vat') return `${value}%`;
+  if (key === 'corDate') return formatDate(String(value));
+  return String(value);
+};
+
+const computeDiff = (oldCor: COR, newForm: Record<string, any>): FieldDiff[] => {
+  const diffs: FieldDiff[] = [];
+  for (const [key, label] of DIFF_FIELDS) {
+    const oldVal = (oldCor as any)[key];
+    const newVal = newForm[key];
+    if (newVal !== undefined && String(oldVal ?? '') !== String(newVal ?? '')) {
+      diffs.push({ field: label, from: fieldToString(key, oldVal), to: fieldToString(key, newVal) });
+    }
+  }
+  return diffs;
+};
+
 const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
   const { items: stockItems } = useStock();
@@ -55,6 +84,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [autoStatusNote, setAutoStatusNote] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -82,11 +112,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const total = cor.price + cor.price * cor.vat / 100;
   const activityLog = cor.activityLog || [];
 
-  const addActivity = (action: COR['activityLog'][0]['action'], description: string) => {
-    const entry = makeEntry(action, description);
-    updateCOR(corId, { activityLog: [...activityLog, entry] });
-  };
-
   const startEdit = () => {
     const amountPaid = cor.paidPercentage / 100 * total;
     setForm({ ...cor, amountPaid });
@@ -106,16 +131,32 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const saveEdit = () => {
     if (editOverpaid) return;
-    const updates = { ...form, paidPercentage: Math.round(editPaidPct * 10) / 10 };
+    const updates: Partial<COR> = { ...form, paidPercentage: Math.round(editPaidPct * 10) / 10 };
     delete (updates as any).amountPaid;
-    
-    const entries = [...activityLog];
-    entries.push(makeEntry('updated', 'Record updated'));
-    if (form.status && form.status !== cor.status) {
-      entries.push(makeEntry('status_changed', `Status changed to ${form.status}`));
+
+    // Compute diffs
+    const diffs = computeDiff(cor, updates);
+    if (diffs.length === 0) {
+      setEditing(false);
+      return; // Nothing changed
     }
-    updates.activityLog = entries;
+
+    const entries = [...activityLog];
+    const statusChanged = form.status && form.status !== cor.status;
     
+    // Add 'updated' entry with diffs (excluding status diff if status changed separately)
+    const updateDiffs = statusChanged ? diffs.filter(d => d.field !== 'Status') : diffs;
+    if (updateDiffs.length > 0) {
+      entries.push({ ...makeEntry('updated', 'Record updated'), diff: updateDiffs });
+    }
+    
+    // Add separate status_changed entry
+    if (statusChanged) {
+      const statusDiff = diffs.filter(d => d.field === 'Status');
+      entries.push({ ...makeEntry('status_changed', `Status changed to ${form.status}`), diff: statusDiff });
+    }
+    
+    updates.activityLog = entries;
     updateCOR(corId, updates);
     setEditing(false);
     toast.success('Record updated ✓');
@@ -123,14 +164,18 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const inputCls = "w-full border-[1.5px] border-border rounded-lg px-3 py-2 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
+  // MERGED updateCOR calls for file/image operations
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
-        updateCOR(corId, { pictureUrls: [...cor.pictureUrls, reader.result as string] });
-        addActivity('image_uploaded', 'Image attached');
+        const currentCor = getCORById(corId);
+        if (!currentCor) return;
+        const newUrls = [...currentCor.pictureUrls, reader.result as string];
+        const newLog = [...(currentCor.activityLog || []), makeEntry('image_uploaded', 'Image attached')];
+        updateCOR(corId, { pictureUrls: newUrls, activityLog: newLog });
       };
       reader.readAsDataURL(file);
     });
@@ -142,20 +187,30 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
-        updateCOR(corId, { fileUrls: [...cor.fileUrls, reader.result as string] });
-        addActivity('file_uploaded', 'Document attached');
+        const currentCor = getCORById(corId);
+        if (!currentCor) return;
+        const newUrls = [...currentCor.fileUrls, reader.result as string];
+        const newLog = [...(currentCor.activityLog || []), makeEntry('file_uploaded', 'Document attached')];
+        updateCOR(corId, { fileUrls: newUrls, activityLog: newLog });
       };
       reader.readAsDataURL(file);
     });
   };
 
   const removeImage = (idx: number) => {
-    updateCOR(corId, { pictureUrls: cor.pictureUrls.filter((_, i) => i !== idx) });
-    addActivity('image_removed', 'Image removed');
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    const newUrls = currentCor.pictureUrls.filter((_, i) => i !== idx);
+    const newLog = [...(currentCor.activityLog || []), makeEntry('image_removed', 'Image removed')];
+    updateCOR(corId, { pictureUrls: newUrls, activityLog: newLog });
   };
+
   const removeFile = (idx: number) => {
-    updateCOR(corId, { fileUrls: cor.fileUrls.filter((_, i) => i !== idx) });
-    addActivity('file_removed', 'Document removed');
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    const newUrls = currentCor.fileUrls.filter((_, i) => i !== idx);
+    const newLog = [...(currentCor.activityLog || []), makeEntry('file_removed', 'Document removed')];
+    updateCOR(corId, { fileUrls: newUrls, activityLog: newLog });
   };
 
   const handleExtract = async () => {
@@ -197,7 +252,12 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
         lineItem: parsed.lineItem || '',
       });
       setExtractEditable(false);
-      addActivity('bill_extracted', 'Bill data extracted from PDF');
+      // Merged: bill_extracted log
+      const currentCor = getCORById(corId);
+      if (currentCor) {
+        const newLog = [...(currentCor.activityLog || []), makeEntry('bill_extracted', 'Bill data extracted from PDF')];
+        updateCOR(corId, { activityLog: newLog });
+      }
     } catch {
       toast.error('Extraction failed. You can enter details manually.');
       setExtractedData({ supplier: '', invoiceNumber: '', date: '', amount: '', lineItem: '' });
@@ -208,15 +268,46 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const applyExtracted = () => {
     if (!extractedData) return;
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    
     const updates: Partial<COR> = {};
-    if (extractedData.supplier) updates.clientName = extractedData.supplier;
-    if (extractedData.invoiceNumber && !cor.corNumber) updates.corNumber = extractedData.invoiceNumber;
-    if (extractedData.date) updates.corDate = extractedData.date;
-    if (extractedData.amount) updates.price = parseFloat(extractedData.amount);
-    if (extractedData.lineItem) updates.productName = extractedData.lineItem;
+    const diffs: FieldDiff[] = [];
+    
+    if (extractedData.supplier) {
+      if (currentCor.clientName !== extractedData.supplier) {
+        diffs.push({ field: 'Client Name', from: currentCor.clientName || '—', to: extractedData.supplier });
+      }
+      updates.clientName = extractedData.supplier;
+    }
+    if (extractedData.invoiceNumber && !currentCor.corNumber) {
+      diffs.push({ field: 'COR Number', from: currentCor.corNumber || '—', to: extractedData.invoiceNumber });
+      updates.corNumber = extractedData.invoiceNumber;
+    }
+    if (extractedData.date) {
+      if (currentCor.corDate !== extractedData.date) {
+        diffs.push({ field: 'COR Date', from: formatDate(currentCor.corDate), to: formatDate(extractedData.date) });
+      }
+      updates.corDate = extractedData.date;
+    }
+    if (extractedData.amount) {
+      const newPrice = parseFloat(extractedData.amount);
+      if (currentCor.price !== newPrice) {
+        diffs.push({ field: 'Price', from: formatEUR(currentCor.price), to: formatEUR(newPrice) });
+      }
+      updates.price = newPrice;
+    }
+    if (extractedData.lineItem) {
+      if (currentCor.productName !== extractedData.lineItem) {
+        diffs.push({ field: 'Product Name', from: currentCor.productName || '—', to: extractedData.lineItem });
+      }
+      updates.productName = extractedData.lineItem;
+    }
+    
+    const newLog = [...(currentCor.activityLog || []), { ...makeEntry('bill_applied', 'Extracted bill data applied to record'), diff: diffs.length > 0 ? diffs : undefined }];
+    updates.activityLog = newLog;
     updateCOR(corId, updates);
     setExtractedData(null);
-    addActivity('bill_applied', 'Extracted bill data applied to record');
     toast.success('Bill data applied to record ✓');
   };
 
@@ -226,8 +317,19 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const handleAddNote = () => {
     if (!noteText.trim()) return;
-    addActivity('note_added', noteText.trim());
+    const currentCor = getCORById(corId);
+    if (!currentCor) return;
+    const newLog = [...(currentCor.activityLog || []), makeEntry('note_added', noteText.trim())];
+    updateCOR(corId, { activityLog: newLog });
     setNoteText('');
+  };
+
+  const toggleDiff = (id: string) => {
+    setExpandedDiffs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const tabs = [
@@ -236,7 +338,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     { key: 'activity', label: 'Activity' },
   ] as const;
 
-  const sortedLog = [...activityLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const sortedLog = [...(cor.activityLog || [])].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <>
@@ -497,6 +599,8 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                   {sortedLog.map((entry, i) => {
                     const config = ACTIVITY_ICONS[entry.action] || ACTIVITY_ICONS.note_added;
                     const IconComp = config.icon;
+                    const hasDiff = entry.diff && entry.diff.length > 0;
+                    const isExpanded = expandedDiffs.has(entry.id);
                     return (
                       <div key={entry.id} className="flex gap-3 relative">
                         {/* Timeline line */}
@@ -508,9 +612,33 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                           <IconComp size={14} style={{ color: config.color }} />
                         </div>
                         {/* Content */}
-                        <div className="pb-5 min-w-0">
+                        <div className="pb-5 min-w-0 flex-1">
                           <p className="text-sm font-semibold">{entry.description}</p>
                           <p className="text-xs text-muted-foreground">{entry.actor} · {relativeTime(entry.timestamp)}</p>
+                          {hasDiff && (
+                            <>
+                              <button
+                                onClick={() => toggleDiff(entry.id)}
+                                className="text-xs mt-1 hover:underline flex items-center gap-1"
+                                style={{ color: '#44C8F5' }}
+                              >
+                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                {isExpanded ? 'Hide changes' : `Show changes (${entry.diff!.length} field${entry.diff!.length > 1 ? 's' : ''})`}
+                              </button>
+                              {isExpanded && (
+                                <div className="mt-2 ml-0 bg-muted rounded-lg p-3 space-y-1.5">
+                                  {entry.diff!.map((d, di) => (
+                                    <div key={di} className="flex items-center gap-1.5 flex-wrap text-xs">
+                                      <span className="font-semibold min-w-[100px]">{d.field}</span>
+                                      <span className="line-through px-1.5 py-0.5 rounded" style={{ background: '#FEE2E2', color: '#EC008C' }}>{d.from}</span>
+                                      <span className="text-muted-foreground">→</span>
+                                      <span className="px-1.5 py-0.5 rounded" style={{ background: '#EAF5F5', color: '#009A93' }}>{d.to}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     );

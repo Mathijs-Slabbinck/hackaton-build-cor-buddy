@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Briefcase, PlayCircle, PauseCircle, Pencil, Trash2, Plus, Loader2, X, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Briefcase, PlayCircle, PauseCircle, Pencil, Trash2, Plus, Loader2, X, CheckCircle, AlertTriangle, TrendingUp, Search } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatEUR, formatDate } from '@/components/SharedUI';
 import { useProjects, type Project } from '@/contexts/ProjectContext';
+import { useEmployees } from '@/contexts/EmployeeContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
@@ -19,12 +21,21 @@ const BudgetStatusBadge = ({ budget, spent }: { budget: number; spent: number })
   return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent text-primary"><CheckCircle size={12} /> On Track</span>;
 };
 
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
+
 const ProjectsPage = () => {
   const { projects, loading, addProject, updateProject, deleteProject } = useProjects();
+  const { employees } = useEmployees();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   useBodyScrollLock(modalOpen);
 
@@ -32,9 +43,18 @@ const ProjectsPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const filtered = useMemo(() => {
+    return projects.filter(p => {
+      const q = search.toLowerCase();
+      if (q && !p.projectName.toLowerCase().includes(q) && !p.clientName.toLowerCase().includes(q) && !p.location.toLowerCase().includes(q)) return false;
+      if (statusFilter !== 'All' && p.status !== statusFilter) return false;
+      return true;
+    });
+  }, [projects, search, statusFilter]);
+
   const pageSize = 10;
-  const totalPages = Math.ceil(projects.length / pageSize);
-  const paged = projects.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (p: Project) => {
@@ -79,6 +99,8 @@ const ProjectsPage = () => {
 
   const remaining = Number(form.budget || 0) - Number(form.amountSpent || 0);
 
+  const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
+
   return (
     <AppLayout>
       <PageHeader title="Projects" subtitle="Manage active and completed construction projects"
@@ -90,8 +112,26 @@ const ProjectsPage = () => {
         <SummaryCard label="On Hold" value={onHoldCount} icon={PauseCircle} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Search</span>
+          <div className="relative min-w-[280px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input placeholder="Search by name, client, location..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</span>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option><option>Active</option><option>Completed</option><option>On Hold</option>
+          </select>
+        </div>
+      </div>
+
       <div className="card-cor overflow-hidden">
-        {projects.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <Briefcase size={48} className="text-border mb-3" />
             <p className="text-muted-foreground mb-4">No projects found</p>
@@ -106,37 +146,81 @@ const ProjectsPage = () => {
                   <th className="text-left px-4 py-3">Location</th><th className="text-left px-4 py-3">Start</th>
                   <th className="text-left px-4 py-3">End</th><th className="text-left px-4 py-3">Budget (€)</th>
                   <th className="text-left px-4 py-3">Spent (€)</th><th className="text-left px-4 py-3">Budget Status</th>
-                  <th className="text-left px-4 py-3">Status</th><th className="text-left px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3">Status</th><th className="text-left px-4 py-3">Team</th><th className="text-left px-4 py-3">Actions</th>
                 </tr></thead>
                 <tbody>
-                  {paged.map((p, i) => {
-                    const isOver = p.amountSpent > p.budget;
-                    return (
-                      <tr key={p.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}
-                        style={isOver ? { borderLeft: '3px solid #C2410C' } : undefined}>
-                        <td className="px-4 py-3 font-medium">{p.projectName}</td>
-                        <td className="px-4 py-3">{p.clientName}</td>
-                        <td className="px-4 py-3 max-w-[160px] truncate">{p.location}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{p.startDate ? formatDate(p.startDate) : '—'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{p.endDate ? formatDate(p.endDate) : '—'}</td>
-                        <td className="px-4 py-3 font-medium">{formatEUR(p.budget)}</td>
-                        <td className="px-4 py-3 font-medium">{formatEUR(p.amountSpent)}</td>
-                        <td className="px-4 py-3"><BudgetStatusBadge budget={p.budget} spent={p.amountSpent} /></td>
-                        <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEdit(p)} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                            <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  <TooltipProvider>
+                    {paged.map((p, i) => {
+                      const isOver = p.amountSpent > p.budget;
+                      const teamMembers = employees.filter(e => e.assignedProject === p.projectName);
+                      const displayAvatars = teamMembers.slice(0, 3);
+                      const remainingCount = teamMembers.length - 3;
+                      return (
+                        <tr key={p.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}
+                          style={isOver ? { borderLeft: '3px solid #C2410C' } : undefined}>
+                          <td className="px-4 py-3 font-medium">{p.projectName}</td>
+                          <td className="px-4 py-3">{p.clientName}</td>
+                          <td className="px-4 py-3 max-w-[160px] truncate">{p.location}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{p.startDate ? formatDate(p.startDate) : '—'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{p.endDate ? formatDate(p.endDate) : '—'}</td>
+                          <td className="px-4 py-3 font-medium">{formatEUR(p.budget)}</td>
+                          <td className="px-4 py-3 font-medium">{formatEUR(p.amountSpent)}</td>
+                          <td className="px-4 py-3"><BudgetStatusBadge budget={p.budget} spent={p.amountSpent} /></td>
+                          <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                          <td className="px-4 py-3">
+                            {teamMembers.length === 0 ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <div>
+                                <div className="flex items-center">
+                                  {displayAvatars.map((emp, ai) => (
+                                    <Tooltip key={emp.id}>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white border-2 border-white"
+                                          style={{ background: '#009A93', marginLeft: ai > 0 ? '-8px' : 0, zIndex: 10 - ai }}
+                                        >
+                                          {getInitials(emp.fullName)}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>{emp.fullName} — {emp.role}</p></TooltipContent>
+                                    </Tooltip>
+                                  ))}
+                                  {remainingCount > 0 && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border-2 border-white bg-muted text-muted-foreground"
+                                          style={{ marginLeft: '-8px', zIndex: 6 }}
+                                        >
+                                          +{remainingCount}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        {teamMembers.slice(3).map(e => <p key={e.id}>{e.fullName} — {e.role}</p>)}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground">{teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => openEdit(p)} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                              <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </TooltipProvider>
                 </tbody>
               </table>
             </div>
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, projects.length)} of {projects.length} results</span>
+              <span className="text-xs text-muted-foreground">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} results</span>
               <div className="flex gap-2">
                 <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Prev</button>
                 <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Next</button>
