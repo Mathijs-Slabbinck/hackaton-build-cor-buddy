@@ -28,6 +28,13 @@ export interface ActivityEntry {
   diff?: FieldDiff[];
 }
 
+export interface AssignedExternal {
+  userId: string;
+  companyId: string;
+  assignedAt: string;
+  assignedBy: string;
+}
+
 export interface COR {
   id: string;
   corName: string;
@@ -48,6 +55,8 @@ export interface COR {
   status: 'Paid' | 'Ongoing' | 'Cancelled';
   projectId?: string;
   activityLog: ActivityEntry[];
+  companyId: string;
+  assignedExternalManagers: AssignedExternal[];
 }
 
 interface CORContextType {
@@ -77,7 +86,9 @@ const SEED: COR[] = [
     vat: 10, price: 1800, paidPercentage: 100,
     location: "42 George St, Sydney NSW 2000",
     status: "Paid", pictureUrls: [], fileUrls: [],
-    activityLog: [makeEntry('created', 'COR created', '2024-02-15T08:00:00.000Z')]
+    activityLog: [makeEntry('created', 'COR created', '2024-02-15T08:00:00.000Z')],
+    companyId: 'company-alpha',
+    assignedExternalManagers: [],
   },
   {
     id: crypto.randomUUID(), corName: "Damaged drywall rectification",
@@ -88,7 +99,14 @@ const SEED: COR[] = [
     vat: 10, price: 4200, paidPercentage: 50,
     location: "17 Collins St, Melbourne VIC 3000",
     status: "Ongoing", pictureUrls: [], fileUrls: [],
-    activityLog: [makeEntry('created', 'COR created', '2024-03-08T08:00:00.000Z')]
+    activityLog: [makeEntry('created', 'COR created', '2024-03-08T08:00:00.000Z')],
+    companyId: 'company-alpha',
+    assignedExternalManagers: [{
+      userId: 'user-beta-manager',
+      companyId: 'company-beta',
+      assignedAt: '2024-03-09T10:00:00.000Z',
+      assignedBy: 'user-alpha-manager',
+    }],
   },
   {
     id: crypto.randomUUID(), corName: "Electrical conduit rerouting",
@@ -99,7 +117,9 @@ const SEED: COR[] = [
     vat: 10, price: 950, paidPercentage: 0,
     location: "9 Roma St, Brisbane QLD 4000",
     status: "Cancelled", pictureUrls: [], fileUrls: [],
-    activityLog: [makeEntry('created', 'COR created', '2024-01-22T08:00:00.000Z')]
+    activityLog: [makeEntry('created', 'COR created', '2024-01-22T08:00:00.000Z')],
+    companyId: 'company-alpha',
+    assignedExternalManagers: [],
   }
 ];
 
@@ -114,8 +134,12 @@ export const CORProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Ensure activityLog exists on loaded records
-      setCors(parsed.map((c: any) => ({ ...c, activityLog: c.activityLog || [] })));
+      setCors(parsed.map((c: any) => ({
+        ...c,
+        activityLog: c.activityLog || [],
+        companyId: c.companyId || 'company-alpha',
+        assignedExternalManagers: c.assignedExternalManagers || [],
+      })));
     }
     else { setCors(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }
     setLoading(false);

@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, Users, Package, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Users, Package, LogOut, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -11,9 +12,10 @@ const navItems = [
 
 const AppSidebar = () => {
   const navigate = useNavigate();
+  const { currentUser, currentCompany, logout, isOwner } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('cortrack_auth');
+    logout();
     navigate('/login');
   };
 
@@ -39,12 +41,28 @@ const AppSidebar = () => {
             {label}
           </NavLink>
         ))}
+        {isOwner() && (
+          <NavLink to="/users"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                isActive ? 'bg-primary text-primary-foreground' : 'text-sidebar-accent-foreground hover:bg-sidebar-accent'
+              }`
+            }>
+            <ShieldCheck size={18} />
+            Users & Access
+          </NavLink>
+        )}
       </nav>
 
       <div className="h-px bg-sidebar-accent mb-3" />
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground text-xs font-semibold">A</div>
-        <span className="text-sidebar-foreground text-[13px] flex-1">Admin</span>
+        <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground text-xs font-semibold">
+          {currentUser?.avatarInitials || 'A'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sidebar-foreground text-[13px] block truncate">{currentUser?.fullName || 'Admin'}</span>
+          <span className="text-[11px] block truncate" style={{ color: '#9CA3AF' }}>{currentCompany?.companyName || ''}</span>
+        </div>
         <button onClick={handleLogout} className="text-sidebar-accent-foreground hover:text-sidebar-foreground transition-colors"><LogOut size={16} /></button>
       </div>
     </aside>
