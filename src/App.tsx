@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CORProvider } from "@/contexts/CORContext";
 import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { StockProvider } from "@/contexts/StockContext";
+import { ShiftProvider } from "@/contexts/ShiftContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import ProtectedRoute, { OwnerOnlyRoute } from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
@@ -45,13 +46,15 @@ const App = () => {
         <AuthProvider>
           <CORProvider>
             <EmployeeProvider>
-              <StockProvider>
-                <ProjectProvider>
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
-                </ProjectProvider>
-              </StockProvider>
+              <ShiftProvider>
+                <StockProvider>
+                  <ProjectProvider>
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </ProjectProvider>
+                </StockProvider>
+              </ShiftProvider>
             </EmployeeProvider>
           </CORProvider>
         </AuthProvider>

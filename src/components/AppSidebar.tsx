@@ -27,12 +27,12 @@ const AppSidebar = () => {
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-60 bg-sidebar flex flex-col p-6 pb-4 z-50">
-      <div className="flex items-center gap-2 mb-4">
+      <NavLink to="/dashboard" className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-primary-foreground font-bold text-xs">COR</span>
         </div>
         <span className="text-sidebar-foreground font-bold text-[22px]">track</span>
-      </div>
+      </NavLink>
       <div className="h-px bg-sidebar-accent mb-4" />
 
       <nav className="flex-1 flex flex-col gap-1">

@@ -4,6 +4,7 @@ export const StatusBadge = ({ status }: { status: string }) => {
     status === 'Ongoing' ? 'status-ongoing' :
     status === 'Cancelled' ? 'status-cancelled' :
     status === 'Active' ? 'status-active' :
+    status === 'Inactive' ? 'status-inactive' :
     status === 'On Leave' ? 'status-onleave' :
     status === 'On Hold' ? 'status-onhold' :
     status === 'Completed' ? 'status-completed' :
