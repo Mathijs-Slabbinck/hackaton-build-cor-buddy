@@ -1,21 +1,26 @@
 import { useState, useMemo } from 'react';
-import { Users, UserCheck, Coffee, Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Users, UserCheck, Coffee, Pencil, Trash2, Plus, Loader2, X } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatDate } from '@/components/SharedUI';
 import { useEmployees, type Employee } from '@/contexts/EmployeeContext';
+import { useProjects } from '@/contexts/ProjectContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 const roles = ['Electrician', 'Plumber', 'Plasterer', 'Carpenter', 'Site Manager', 'Labourer', 'HVAC Tech', 'Demolition Worker'];
 
 const EmployeesPage = () => {
   const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { projects } = useProjects();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+
+  useBodyScrollLock(modalOpen);
 
   const emptyForm = { fullName: '', role: '', email: '', phone: '', assignedProject: '', startDate: '', endDate: '', dailyRate: '', status: 'Active' as Employee['status'] };
   const [form, setForm] = useState(emptyForm);
@@ -28,9 +33,7 @@ const EmployeesPage = () => {
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (emp: Employee) => {
     setForm({ ...emp, dailyRate: String(emp.dailyRate) } as any);
-    setEditId(emp.id);
-    setErrors({});
-    setModalOpen(true);
+    setEditId(emp.id); setErrors({}); setModalOpen(true);
   };
 
   const validate = () => {
@@ -39,8 +42,6 @@ const EmployeesPage = () => {
     if (!form.role.trim()) errs.role = 'Required';
     if (!form.email.trim()) errs.email = 'Required';
     if (!form.assignedProject.trim()) errs.assignedProject = 'Required';
-    if (!form.startDate) errs.startDate = 'Required';
-    if (!form.endDate) errs.endDate = 'Required';
     if (!form.dailyRate) errs.dailyRate = 'Required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -109,8 +110,8 @@ const EmployeesPage = () => {
                       <td className="px-4 py-3 font-medium">{e.fullName}</td>
                       <td className="px-4 py-3">{e.role}</td>
                       <td className="px-4 py-3">{e.assignedProject}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(e.startDate)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(e.endDate)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{e.startDate ? formatDate(e.startDate) : '—'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{e.endDate ? formatDate(e.endDate) : '—'}</td>
                       <td className="px-4 py-3">${e.dailyRate} /day</td>
                       <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
                       <td className="px-4 py-3">
@@ -149,10 +150,17 @@ const EmployeesPage = () => {
               <div><label className="label-uppercase block mb-1.5">Role *</label><input list="roles" className={inputCls('role')} value={form.role} onChange={e => set('role', e.target.value)} /><datalist id="roles">{roles.map(r => <option key={r} value={r} />)}</datalist>{errors.role && <p className="text-destructive text-xs mt-1">{errors.role}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Email *</label><input type="email" className={inputCls('email')} value={form.email} onChange={e => set('email', e.target.value)} />{errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Phone</label><input className={inputCls('phone')} placeholder="04XX XXX XXX" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
-              <div><label className="label-uppercase block mb-1.5">Assigned Project *</label><input className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)} />{errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}</div>
+              <div>
+                <label className="label-uppercase block mb-1.5">Assigned Project *</label>
+                <select className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)}>
+                  <option value="">Select project...</option>
+                  {projects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
+                </select>
+                {errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="label-uppercase block mb-1.5">Start Date *</label><input type="date" className={inputCls('startDate')} value={form.startDate} onChange={e => set('startDate', e.target.value)} />{errors.startDate && <p className="text-destructive text-xs mt-1">{errors.startDate}</p>}</div>
-                <div><label className="label-uppercase block mb-1.5">End Date *</label><input type="date" className={inputCls('endDate')} value={form.endDate} onChange={e => set('endDate', e.target.value)} />{errors.endDate && <p className="text-destructive text-xs mt-1">{errors.endDate}</p>}</div>
+                <div><label className="label-uppercase block mb-1.5">Start Date</label><input type="date" className={inputCls('startDate')} value={form.startDate} onChange={e => set('startDate', e.target.value)} /></div>
+                <div><label className="label-uppercase block mb-1.5">End Date</label><input type="date" className={inputCls('endDate')} value={form.endDate} onChange={e => set('endDate', e.target.value)} /></div>
               </div>
               <div><label className="label-uppercase block mb-1.5">Daily Rate AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} className={`${inputCls('dailyRate')} pl-7`} value={form.dailyRate} onChange={e => set('dailyRate', e.target.value)} /></div>{errors.dailyRate && <p className="text-destructive text-xs mt-1">{errors.dailyRate}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>On Leave</option><option>Completed</option></select></div>
@@ -174,7 +182,5 @@ const EmployeesPage = () => {
     </AppLayout>
   );
 };
-
-const X = ({ size }: { size: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
 export default EmployeesPage;

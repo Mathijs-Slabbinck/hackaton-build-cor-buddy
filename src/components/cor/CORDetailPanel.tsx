@@ -1,9 +1,12 @@
-import { useState, useRef } from 'react';
-import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock } from 'lucide-react';
 import { useCOR, type COR } from '@/contexts/CORContext';
+import { useStock } from '@/contexts/StockContext';
+import { useProjects } from '@/contexts/ProjectContext';
 import { StatusBadge, formatAUD, formatDate, PaidBar } from '@/components/SharedUI';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Props { corId: string; onClose: () => void; onDelete: (id: string) => void; }
 
@@ -20,27 +23,69 @@ const segments = (options: string[], value: string, onChange: (v: string) => voi
 
 const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
-  const cor = getCORById(corId);
+  const { items: stockItems } = useStock();
+  const { projects } = useProjects();
   const [tab, setTab] = useState<'details' | 'files' | 'activity'>('details');
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<Partial<COR>>({});
+  const [form, setForm] = useState<Partial<COR> & { amountPaid?: number }>({});
   const [extracting, setExtracting] = useState(false);
-  const [extracted, setExtracted] = useState(false);
+  const [extractedData, setExtractedData] = useState<Record<string, string> | null>(null);
+  const [extractEditable, setExtractEditable] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [autoStatusNote, setAutoStatusNote] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
+  useBodyScrollLock(true);
+
+  const cor = getCORById(corId);
+
+  // Auto-status for edit
+  useEffect(() => {
+    if (!editing || !cor) return;
+    const p = Number(form.price ?? cor.price);
+    const v = Number(form.vat ?? cor.vat);
+    const t = p + p * v / 100;
+    const a = Number(form.amountPaid ?? 0);
+    if (t > 0 && a >= t) {
+      setForm(f => ({ ...f, status: 'Paid' }));
+      setAutoStatusNote(true);
+    } else if (autoStatusNote) {
+      setForm(f => ({ ...f, status: 'Ongoing' }));
+      setAutoStatusNote(false);
+    }
+  }, [editing, form.price, form.vat, form.amountPaid]);
+
   if (!cor) return null;
 
-  const startEdit = () => { setForm({ ...cor }); setEditing(true); };
+  const total = cor.price + cor.price * cor.vat / 100;
+
+  const startEdit = () => {
+    const amountPaid = cor.paidPercentage / 100 * (cor.price + cor.price * cor.vat / 100);
+    setForm({ ...cor, amountPaid });
+    setEditing(true);
+    setAutoStatusNote(false);
+  };
   const cancelEdit = () => { setEditing(false); setForm({}); };
+
+  const editTotal = () => {
+    const p = Number(form.price ?? cor.price);
+    const v = Number(form.vat ?? cor.vat);
+    return p + p * v / 100;
+  };
+  const editAmountPaid = Number(form.amountPaid ?? 0);
+  const editPaidPct = editTotal() > 0 ? Math.min((editAmountPaid / editTotal()) * 100, 100) : 0;
+  const editOverpaid = editAmountPaid > editTotal() && editTotal() > 0;
+
   const saveEdit = () => {
-    updateCOR(corId, form);
+    if (editOverpaid) return;
+    const updates = { ...form, paidPercentage: Math.round(editPaidPct * 10) / 10 };
+    delete (updates as any).amountPaid;
+    updateCOR(corId, updates);
     setEditing(false);
     toast.success('Record updated ✓');
   };
 
-  const total = cor.price + cor.price * cor.vat / 100;
   const inputCls = "w-full border-[1.5px] border-border rounded-lg px-3 py-2 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,9 +93,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => {
-        updateCOR(corId, { pictureUrls: [...cor.pictureUrls, reader.result as string] });
-      };
+      reader.onload = () => { updateCOR(corId, { pictureUrls: [...cor.pictureUrls, reader.result as string] }); };
       reader.readAsDataURL(file);
     });
   };
@@ -60,39 +103,77 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => {
-        updateCOR(corId, { fileUrls: [...cor.fileUrls, reader.result as string] });
-      };
+      reader.onload = () => { updateCOR(corId, { fileUrls: [...cor.fileUrls, reader.result as string] }); };
       reader.readAsDataURL(file);
     });
   };
 
-  const removeImage = (idx: number) => {
-    updateCOR(corId, { pictureUrls: cor.pictureUrls.filter((_, i) => i !== idx) });
-  };
-
-  const removeFile = (idx: number) => {
-    updateCOR(corId, { fileUrls: cor.fileUrls.filter((_, i) => i !== idx) });
-  };
+  const removeImage = (idx: number) => { updateCOR(corId, { pictureUrls: cor.pictureUrls.filter((_, i) => i !== idx) }); };
+  const removeFile = (idx: number) => { updateCOR(corId, { fileUrls: cor.fileUrls.filter((_, i) => i !== idx) }); };
 
   const handleExtract = async () => {
+    if (cor.fileUrls.length === 0) {
+      toast.error('Please upload a PDF bill first.');
+      return;
+    }
     setExtracting(true);
-    await new Promise(r => setTimeout(r, 2000));
+    setExtractedData(null);
+
+    const lastFile = cor.fileUrls[cor.fileUrls.length - 1];
+    const base64Data = lastFile.includes(',') ? lastFile.split(',')[1] : lastFile;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
+              { type: 'text', text: 'Extract the following fields from this Australian construction invoice and return ONLY a valid JSON object with no markdown, no explanation, no backticks. Fields: supplier (string), invoiceNumber (string), date (ISO date string YYYY-MM-DD), amount (number, excl GST if shown separately), lineItem (string, first or main line item description). If a field cannot be found, use null.' }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.find((b: any) => b.type === 'text')?.text;
+      const parsed = JSON.parse(text);
+      setExtractedData({
+        supplier: parsed.supplier || '',
+        invoiceNumber: parsed.invoiceNumber || '',
+        date: parsed.date || '',
+        amount: parsed.amount != null ? String(parsed.amount) : '',
+        lineItem: parsed.lineItem || '',
+      });
+      setExtractEditable(false);
+    } catch {
+      toast.error('Extraction failed. You can enter details manually.');
+      setExtractedData({ supplier: '', invoiceNumber: '', date: '', amount: '', lineItem: '' });
+      setExtractEditable(true);
+    }
     setExtracting(false);
-    setExtracted(true);
   };
 
   const applyExtracted = () => {
-    updateCOR(corId, { productName: 'Site cleanup services', price: 1240 });
-    setExtracted(false);
-    toast.success('Bill data applied ✓');
+    if (!extractedData) return;
+    const updates: Partial<COR> = {};
+    if (extractedData.supplier) updates.clientName = extractedData.supplier;
+    if (extractedData.invoiceNumber && !cor.corNumber) updates.corNumber = extractedData.invoiceNumber;
+    if (extractedData.date) updates.corDate = extractedData.date;
+    if (extractedData.amount) updates.price = parseFloat(extractedData.amount);
+    if (extractedData.lineItem) updates.productName = extractedData.lineItem;
+    updateCOR(corId, updates);
+    setExtractedData(null);
+    toast.success('Bill data applied to record ✓');
   };
 
-  const handleDelete = () => {
-    deleteCOR(corId);
-    toast.success('COR deleted');
-    onClose();
-  };
+  const handleDelete = () => { deleteCOR(corId); toast.success('COR deleted'); onClose(); };
+
+  const linkedStock = stockItems.filter(s => s.linkedCorId === corId);
 
   const tabs = [
     { key: 'details', label: 'Details' },
@@ -104,7 +185,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     <>
       <div className="fixed inset-0 bg-foreground/30 z-50" onClick={onClose} />
       <div className="fixed right-0 top-0 bottom-0 w-[480px] bg-card z-50 animate-slide-in-right flex flex-col shadow-2xl">
-        {/* Header */}
         <div className="p-6 pb-0 border-b border-border">
           <div className="flex items-start justify-between mb-1">
             <div className="flex items-center gap-2">
@@ -124,7 +204,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
           </div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'details' && !editing && (
             <div className="space-y-5">
@@ -148,6 +227,29 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 </div>
               </div>
               <div className="text-center pt-2"><StatusBadge status={cor.status} /></div>
+
+              {/* Linked Stock Items */}
+              <div>
+                <p className="label-uppercase text-[11px] mb-2 border-t border-border pt-4">Linked Stock Items</p>
+                {linkedStock.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No stock items linked to this COR.</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead><tr className="table-header"><th className="text-left px-2 py-1.5">Item Name</th><th className="text-left px-2 py-1.5">SKU</th><th className="text-left px-2 py-1.5">Qty</th><th className="text-left px-2 py-1.5">Unit Cost</th></tr></thead>
+                    <tbody>
+                      {linkedStock.map(s => (
+                        <tr key={s.id} className="border-b border-border">
+                          <td className="px-2 py-1.5 font-medium">{s.itemName}</td>
+                          <td className="px-2 py-1.5 text-muted-foreground">{s.sku}</td>
+                          <td className="px-2 py-1.5">{s.quantityOnHand}</td>
+                          <td className="px-2 py-1.5">{formatAUD(s.unitCost)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
               <button onClick={startEdit} className="w-full py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Edit Record</button>
             </div>
           )}
@@ -158,7 +260,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 ['corName', 'COR Name', 'text'], ['corNumber', 'COR Number', 'text'],
                 ['corDate', 'COR Date', 'date'], ['clientName', 'Client Name', 'text'],
                 ['vatNumber', 'VAT / ABN', 'text'], ['productName', 'Product Name', 'text'],
-                ['location', 'Location', 'text'],
               ] as [keyof COR, string, string][]).map(([key, label, type]) => (
                 <div key={key}>
                   <label className="label-uppercase block mb-1.5">{label}</label>
@@ -166,8 +267,23 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 </div>
               ))}
               <div>
+                <label className="label-uppercase block mb-1.5">Project</label>
+                <select className={inputCls} value={form.projectId || ''} onChange={e => {
+                  const proj = projects.find(p => p.id === e.target.value);
+                  setForm(f => ({ ...f, projectId: e.target.value, location: proj?.location || f.location || '' }));
+                }}>
+                  <option value="">Select a project...</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-uppercase block mb-1.5">Location</label>
+                <input className={inputCls} value={(form.location as string) || ''} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+              </div>
+              <div>
                 <label className="label-uppercase block mb-1.5">Status</label>
                 {segments(['Ongoing', 'Paid', 'Cancelled'], form.status || cor.status, v => setForm(f => ({ ...f, status: v as COR['status'] })))}
+                {autoStatusNote && <p className="text-xs mt-1" style={{ color: '#009A93' }}>✓ Status automatically set to Paid</p>}
               </div>
               <div>
                 <label className="label-uppercase block mb-1.5">Client Kind</label>
@@ -186,18 +302,22 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 <input type="number" className={inputCls} value={form.vat ?? cor.vat} onChange={e => setForm(f => ({ ...f, vat: Number(e.target.value) }))} />
               </div>
               <div>
-                <label className="label-uppercase block mb-1.5">Paid %</label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min={0} max={100} value={form.paidPercentage ?? cor.paidPercentage} onChange={e => setForm(f => ({ ...f, paidPercentage: Number(e.target.value) }))} className="flex-1 accent-primary" />
-                  <span className="bg-accent text-primary text-xs font-semibold px-2 py-1 rounded-md">{form.paidPercentage ?? cor.paidPercentage}%</span>
+                <label className="label-uppercase block mb-1.5">Amount Paid AUD</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <input type="number" min={0} step={0.01} placeholder="0.00" className={`${inputCls} pl-7`} value={form.amountPaid ?? 0} onChange={e => setForm(f => ({ ...f, amountPaid: Number(e.target.value) }))} />
                 </div>
+                {editOverpaid && <p className="text-destructive text-xs mt-1">Paid amount cannot exceed total</p>}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="label-uppercase text-[11px]">Paid Percentage</span>
+                <span className="font-bold" style={{ color: '#009A93' }}>{editPaidPct.toFixed(1)}%</span>
               </div>
             </div>
           )}
 
           {tab === 'files' && (
             <div className="space-y-6">
-              {/* Images */}
               <div>
                 <p className="label-uppercase text-[11px] mb-3">Images</p>
                 {cor.pictureUrls.length > 0 && (
@@ -218,7 +338,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 </div>
               </div>
 
-              {/* Documents */}
               <div>
                 <p className="label-uppercase text-[11px] mb-3">Documents</p>
                 {cor.fileUrls.length > 0 && (
@@ -250,17 +369,37 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                   {extracting ? <><Loader2 size={16} className="animate-spin" /> Extracting data...</> : 'Extract from latest PDF'}
                 </button>
 
-                {extracted && (
+                {extractedData && (
                   <div className="mt-4 bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="font-bold text-sm">Extracted Bill Data</span>
-                      <span className="bg-accent text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm">Extracted Bill Data</span>
+                        <span className="bg-accent text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</span>
+                      </div>
+                      <button onClick={() => setExtractEditable(!extractEditable)} className="p-1 hover:bg-accent rounded-md transition-colors">
+                        {extractEditable ? <Lock size={14} /> : <Pencil size={14} />}
+                      </button>
                     </div>
-                    <div className="space-y-1.5 text-sm">
-                      {[['Supplier', 'BuildClean Pty Ltd'], ['Invoice #', 'INV-00234'], ['Date', '12 Mar 2024'], ['Amount', '$1,240.00'], ['Line item', 'Site cleanup services']].map(([l, v]) => (
-                        <div key={l} className="flex justify-between">
-                          <span className="text-muted-foreground">{l}</span>
-                          <span className="font-medium">{v}</span>
+                    <div className="space-y-2 text-sm">
+                      {[
+                        ['Supplier', 'supplier'],
+                        ['Invoice #', 'invoiceNumber'],
+                        ['Date', 'date'],
+                        ['Amount', 'amount'],
+                        ['Line item', 'lineItem'],
+                      ].map(([label, key]) => (
+                        <div key={key}>
+                          <p className="label-uppercase text-[10px] mb-0.5">{label}</p>
+                          {extractEditable ? (
+                            <input
+                              type={key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text'}
+                              className={inputCls}
+                              value={extractedData[key] || ''}
+                              onChange={e => setExtractedData(prev => prev ? { ...prev, [key]: e.target.value } : prev)}
+                            />
+                          ) : (
+                            <p className="font-medium">{key === 'amount' && extractedData[key] ? `$${Number(extractedData[key]).toFixed(2)}` : key === 'date' && extractedData[key] ? formatDate(extractedData[key]) : extractedData[key] || '—'}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -279,7 +418,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-6 pt-4 border-t border-border">
           {editing ? (
             <div className="flex justify-between">

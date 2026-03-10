@@ -5,11 +5,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CORProvider } from "@/contexts/CORContext";
 import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { StockProvider } from "@/contexts/StockContext";
+import { ProjectProvider } from "@/contexts/ProjectContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import CORPage from "@/pages/CORPage";
 import EmployeesPage from "@/pages/EmployeesPage";
 import StockPage from "@/pages/StockPage";
+import ProjectsPage from "@/pages/ProjectsPage";
 import DashboardPage from "@/pages/DashboardPage";
 import NotFound from "@/pages/NotFound";
 
@@ -25,17 +27,20 @@ const App = () => {
         <CORProvider>
           <EmployeeProvider>
             <StockProvider>
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/" element={<Navigate to={authed ? "/cor" : "/login"} replace />} />
-                  <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-                  <Route path="/cor" element={<ProtectedRoute><CORPage /></ProtectedRoute>} />
-                  <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
-                  <Route path="/stock" element={<ProtectedRoute><StockPage /></ProtectedRoute>} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
+              <ProjectProvider>
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/" element={<Navigate to={authed ? "/cor" : "/login"} replace />} />
+                    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                    <Route path="/cor" element={<ProtectedRoute><CORPage /></ProtectedRoute>} />
+                    <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+                    <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
+                    <Route path="/stock" element={<ProtectedRoute><StockPage /></ProtectedRoute>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </ProjectProvider>
             </StockProvider>
           </EmployeeProvider>
         </CORProvider>

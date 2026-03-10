@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
+import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
@@ -9,6 +9,9 @@ import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
+
+const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
 const CORPage = () => {
   const { cors, loading, deleteCOR } = useCOR();
@@ -39,7 +42,14 @@ const CORPage = () => {
   const totalCors = cors.length;
   const ongoing = cors.filter(c => c.status === 'Ongoing').length;
   const paid = cors.filter(c => c.status === 'Paid').length;
+  const cancelled = cors.filter(c => c.status === 'Cancelled').length;
   const totalValue = cors.reduce((s, c) => s + c.price + c.price * c.vat / 100, 0);
+
+  const pieData = [
+    { name: 'Paid', value: paid },
+    { name: 'Ongoing', value: ongoing },
+    { name: 'Cancelled', value: cancelled },
+  ].filter(d => d.value > 0);
 
   if (loading) return <AppLayout><div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={40} /></div></AppLayout>;
 
@@ -72,6 +82,24 @@ const CORPage = () => {
         <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
         <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
         <SummaryCard label="Total Value (AUD)" value={formatAUD(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
+      </div>
+
+      {/* Pie chart */}
+      <div className="card-cor p-5 mb-6">
+        <h3 className="font-bold text-base mb-3">COR Status Overview</h3>
+        {pieData.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No records yet</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+              </Pie>
+              <Tooltip />
+              <Legend layout="vertical" verticalAlign="middle" align="right" />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Filters */}
@@ -116,49 +144,56 @@ const CORPage = () => {
                     <th className="text-left px-4 py-3">Date</th>
                     <th className="text-left px-4 py-3">Total (AUD)</th>
                     <th className="text-left px-4 py-3">Paid %</th>
+                    <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><Paperclip size={12} />Attach.</span></th>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map((c, i) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => setDetailId(c.id)}
-                      className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}
-                    >
-                      <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
-                      <td className="px-4 py-3 font-medium">{c.corName}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {c.clientName}
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${c.clientKind === 'Company' ? 'bg-accent text-primary' : 'bg-blue-light text-blue'}`}>
-                            {c.clientKind}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{c.productType}</td>
-                      <td className="px-4 py-3 max-w-[160px] truncate">{c.location}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(c.corDate)}</td>
-                      <td className="px-4 py-3 font-medium">{formatAUD(c.price + c.price * c.vat / 100)}</td>
-                      <td className="px-4 py-3 w-24"><PaidBar pct={c.paidPercentage} /></td>
-                      <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={e => { e.stopPropagation(); setDetailId(c.id); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                          <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paged.map((c, i) => {
+                    const imgCount = c.pictureUrls.length;
+                    const fileCount = c.fileUrls.length;
+                    return (
+                      <tr key={c.id} onClick={() => setDetailId(c.id)}
+                        className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
+                        <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
+                        <td className="px-4 py-3 font-medium">{c.corName}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {c.clientName}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${c.clientKind === 'Company' ? 'bg-accent text-primary' : 'bg-blue-light text-blue'}`}>{c.clientKind}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{c.productType}</td>
+                        <td className="px-4 py-3 max-w-[160px] truncate">{c.location}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{formatDate(c.corDate)}</td>
+                        <td className="px-4 py-3 font-medium">{formatAUD(c.price + c.price * c.vat / 100)}</td>
+                        <td className="px-4 py-3 w-24"><PaidBar pct={c.paidPercentage} /></td>
+                        <td className="px-4 py-3">
+                          {imgCount === 0 && fileCount === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              {imgCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#EEF9FD', color: '#44C8F5' }}><ImageIcon size={12} />{imgCount}</span>}
+                              {fileCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent text-primary"><FileText size={12} />{fileCount}</span>}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={e => { e.stopPropagation(); setDetailId(c.id); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                            <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">
-                Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} results
-              </span>
+              <span className="text-xs text-muted-foreground">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} results</span>
               <div className="flex gap-2">
                 <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Prev</button>
                 <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Next</button>
@@ -168,13 +203,9 @@ const CORPage = () => {
         )}
       </div>
 
-      {/* Drawer */}
       {drawerOpen && <CORDrawer onClose={() => setDrawerOpen(false)} />}
-
-      {/* Detail Panel */}
       {detailId && <CORDetailPanel corId={detailId} onClose={() => setDetailId(null)} onDelete={id => setDeleteId(id)} />}
 
-      {/* Delete dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

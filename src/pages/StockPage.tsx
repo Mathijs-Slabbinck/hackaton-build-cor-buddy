@@ -1,19 +1,24 @@
 import { useState, useMemo } from 'react';
-import { Package, AlertTriangle, DollarSign, Truck, Search, Pencil, Trash2, Plus, Loader2, X } from 'lucide-react';
+import { Package, AlertTriangle, DollarSign, Truck, Search, Pencil, Trash2, Plus, Loader2, X, Link2 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { formatAUD, formatDate } from '@/components/SharedUI';
 import { useStock, type StockItem } from '@/contexts/StockContext';
+import { useCOR } from '@/contexts/CORContext';
+import { useProjects } from '@/contexts/ProjectContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 const categories = ['Fasteners', 'Adhesives', 'Safety', 'Electrical', 'Plumbing', 'Timber', 'Concrete', 'Other'];
 const units = ['each', 'box', 'roll', 'litre', 'kg', 'm²', 'bag', 'pallet'];
 
 const StockPage = () => {
   const { items, loading, addItem, updateItem, deleteItem } = useStock();
+  const { cors } = useCOR();
+  const { projects } = useProjects();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -23,8 +28,13 @@ const StockPage = () => {
   const [page, setPage] = useState(0);
   const [restockId, setRestockId] = useState<string | null>(null);
   const [restockQty, setRestockQty] = useState(1);
+  const [linkModalId, setLinkModalId] = useState<string | null>(null);
+  const [linkCorId, setLinkCorId] = useState('');
+  const [linkDamageLog, setLinkDamageLog] = useState('');
 
-  const emptyForm = { itemName: '', sku: '', category: 'Fasteners', unit: 'each', quantityOnHand: '', reorderLevel: '', unitCost: '', supplier: '', lastRestocked: new Date().toISOString().split('T')[0], assignedProject: '' };
+  useBodyScrollLock(modalOpen || !!linkModalId);
+
+  const emptyForm = { itemName: '', sku: '', category: 'Fasteners', unit: 'each', quantityOnHand: '', reorderLevel: '', unitCost: '', supplier: '', lastRestocked: new Date().toISOString().split('T')[0], assignedProject: '', damageLog: '', linkedCorId: '' };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -50,10 +60,8 @@ const StockPage = () => {
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (item: StockItem) => {
-    setForm({ ...item, quantityOnHand: String(item.quantityOnHand), reorderLevel: String(item.reorderLevel), unitCost: String(item.unitCost) } as any);
-    setEditId(item.id);
-    setErrors({});
-    setModalOpen(true);
+    setForm({ ...item, quantityOnHand: String(item.quantityOnHand), reorderLevel: String(item.reorderLevel), unitCost: String(item.unitCost), linkedCorId: item.linkedCorId || '', damageLog: item.damageLog || '' } as any);
+    setEditId(item.id); setErrors({}); setModalOpen(true);
   };
 
   const validate = () => {
@@ -74,6 +82,8 @@ const StockPage = () => {
       quantityOnHand: Number(form.quantityOnHand), reorderLevel: Number(form.reorderLevel),
       unitCost: Number(form.unitCost), supplier: form.supplier.trim(),
       lastRestocked: form.lastRestocked, assignedProject: form.assignedProject.trim(),
+      linkedCorId: form.linkedCorId || null,
+      damageLog: form.damageLog || '',
     };
     if (editId) updateItem(editId, data);
     else addItem(data);
@@ -88,8 +98,14 @@ const StockPage = () => {
     if (!item) return;
     updateItem(id, { quantityOnHand: item.quantityOnHand + restockQty, lastRestocked: new Date().toISOString().split('T')[0] });
     toast.success('Stock updated ✓');
-    setRestockId(null);
-    setRestockQty(1);
+    setRestockId(null); setRestockQty(1);
+  };
+
+  const handleLinkCor = () => {
+    if (!linkModalId || !linkCorId) return;
+    updateItem(linkModalId, { linkedCorId: linkCorId, damageLog: linkDamageLog });
+    toast.success('Stock item linked to COR ✓');
+    setLinkModalId(null); setLinkCorId(''); setLinkDamageLog('');
   };
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -105,7 +121,7 @@ const StockPage = () => {
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         <SummaryCard label="Total Items" value={items.length} icon={Package} iconBg="#EAF5F5" iconColor="#009A93" />
-        <SummaryCard label="Low Stock" value={lowStockCount} icon={AlertTriangle} iconBg="#FEE2E2" iconColor="#EC008C" valueColor="#EC008C" />
+        <SummaryCard label="Not Enough Stock" value={lowStockCount} icon={AlertTriangle} iconBg="#FEE2E2" iconColor="#EC008C" valueColor="#EC008C" />
         <SummaryCard label="Total Stock Value" value={formatAUD(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
         <SummaryCard label="Suppliers" value={uniqueSuppliers} icon={Truck} iconBg="#fffded" iconColor="#856A00" />
       </div>
@@ -113,7 +129,7 @@ const StockPage = () => {
       {lowStockCount > 0 && (
         <div className="border-l-4 border-destructive bg-red-100 rounded-xl px-5 py-3.5 mb-4 flex items-center gap-3">
           <AlertTriangle size={18} className="text-destructive shrink-0" />
-          <span className="text-sm">⚠ {lowStockCount} item(s) are below reorder level. Review stock urgently.</span>
+          <span className="text-sm">⚠ {lowStockCount} item(s) do not have enough stock. Review urgently.</span>
         </div>
       )}
 
@@ -148,11 +164,13 @@ const StockPage = () => {
                   <th className="text-left px-4 py-3">Reorder</th><th className="text-left px-4 py-3">Unit</th>
                   <th className="text-left px-4 py-3">Unit Cost</th><th className="text-left px-4 py-3">Total Value</th>
                   <th className="text-left px-4 py-3">Supplier</th><th className="text-left px-4 py-3">Last Restocked</th>
-                  <th className="text-left px-4 py-3">Project</th><th className="text-left px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3">Project</th><th className="text-left px-4 py-3">Linked COR</th>
+                  <th className="text-left px-4 py-3">Actions</th>
                 </tr></thead>
                 <tbody>
                   {paged.map((item, i) => {
                     const isLow = item.quantityOnHand <= item.reorderLevel;
+                    const linkedCor = item.linkedCorId ? cors.find(c => c.id === item.linkedCorId) : null;
                     return (
                       <tr key={item.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
                         <td className="px-4 py-3 font-medium">{item.itemName}</td>
@@ -160,7 +178,7 @@ const StockPage = () => {
                         <td className="px-4 py-3">{item.category}</td>
                         <td className="px-4 py-3">
                           <span className={isLow ? 'text-destructive font-bold' : ''}>{item.quantityOnHand}</span>
-                          {isLow && <span className="status-lowstock ml-2">Low</span>}
+                          {isLow && <span className="status-lowstock ml-2">Not enough</span>}
                         </td>
                         <td className="px-4 py-3">{item.reorderLevel}</td>
                         <td className="px-4 py-3">{item.unit}</td>
@@ -169,6 +187,18 @@ const StockPage = () => {
                         <td className="px-4 py-3 max-w-[120px] truncate">{item.supplier}</td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDate(item.lastRestocked)}</td>
                         <td className="px-4 py-3 max-w-[120px] truncate">{item.assignedProject}</td>
+                        <td className="px-4 py-3">
+                          {linkedCor ? (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent text-primary cursor-pointer" title={linkedCor.corName}>
+                              {linkedCor.corNumber}
+                            </span>
+                          ) : (
+                            <button onClick={() => { setLinkModalId(item.id); setLinkCorId(''); setLinkDamageLog(''); }}
+                              className="text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                              Link COR
+                            </button>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => openEdit(item)} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
@@ -203,7 +233,7 @@ const StockPage = () => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {modalOpen && (
         <>
           <div className="fixed inset-0 bg-foreground/30 z-50" onClick={() => setModalOpen(false)} />
@@ -222,11 +252,54 @@ const StockPage = () => {
               <div><label className="label-uppercase block mb-1.5">Unit Cost AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} step={0.01} className={`${inputCls('unitCost')} pl-7`} value={form.unitCost} onChange={e => set('unitCost', e.target.value)} /></div>{errors.unitCost && <p className="text-destructive text-xs mt-1">{errors.unitCost}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Supplier *</label><input className={inputCls('supplier')} value={form.supplier} onChange={e => set('supplier', e.target.value)} />{errors.supplier && <p className="text-destructive text-xs mt-1">{errors.supplier}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Last Restocked *</label><input type="date" className={inputCls('lastRestocked')} value={form.lastRestocked} onChange={e => set('lastRestocked', e.target.value)} />{errors.lastRestocked && <p className="text-destructive text-xs mt-1">{errors.lastRestocked}</p>}</div>
-              <div><label className="label-uppercase block mb-1.5">Assigned Project *</label><input className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)} />{errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}</div>
+              <div>
+                <label className="label-uppercase block mb-1.5">Assigned Project *</label>
+                <select className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)}>
+                  <option value="">Select project...</option>
+                  {projects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
+                </select>
+                {errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}
+              </div>
+            </div>
+            <div className="px-6 pb-4 space-y-4">
+              <p className="label-uppercase text-[11px] border-t border-border pt-3">Optional</p>
+              <div><label className="label-uppercase block mb-1.5">Damage Log</label><textarea rows={2} className={inputCls('damageLog')} placeholder="Describe why stock is being ordered..." value={form.damageLog} onChange={e => set('damageLog', e.target.value)} /></div>
+              <div><label className="label-uppercase block mb-1.5">Link to COR</label>
+                <select className={inputCls('linkedCorId')} value={form.linkedCorId} onChange={e => set('linkedCorId', e.target.value)}>
+                  <option value="">None</option>
+                  {cors.map(c => <option key={c.id} value={c.id}>{c.corNumber} — {c.corName}</option>)}
+                </select>
+              </div>
             </div>
             <div className="p-6 pt-0 flex justify-between">
               <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
               <button onClick={save} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors">Save</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Link COR Modal */}
+      {linkModalId && (
+        <>
+          <div className="fixed inset-0 bg-foreground/30 z-50" onClick={() => setLinkModalId(null)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] bg-card rounded-2xl shadow-2xl z-50">
+            <div className="p-6 border-b border-border flex justify-between items-center">
+              <h2 className="text-lg font-bold">Link to COR Record</h2>
+              <button onClick={() => setLinkModalId(null)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div><label className="label-uppercase block mb-1.5">Damage / Order Reason</label><textarea rows={3} className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" value={linkDamageLog} onChange={e => setLinkDamageLog(e.target.value)} /></div>
+              <div><label className="label-uppercase block mb-1.5">Select COR</label>
+                <select className="w-full border-[1.5px] border-border rounded-lg px-3 py-2.5 text-sm focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" value={linkCorId} onChange={e => setLinkCorId(e.target.value)}>
+                  <option value="">Select...</option>
+                  {cors.map(c => <option key={c.id} value={c.id}>{c.corNumber} — {c.corName}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="p-6 pt-0 flex justify-between">
+              <button onClick={() => setLinkModalId(null)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
+              <button onClick={handleLinkCor} disabled={!linkCorId} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors disabled:opacity-50">Link</button>
             </div>
           </div>
         </>

@@ -18,6 +18,7 @@ export interface COR {
   pictureUrls: string[];
   fileUrls: string[];
   status: 'Paid' | 'Ongoing' | 'Cancelled';
+  projectId?: string;
 }
 
 interface CORContextType {
@@ -71,20 +72,12 @@ export const CORProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      setCors(JSON.parse(raw));
-    } else {
-      setCors(SEED);
-      localStorage.setItem(KEY, JSON.stringify(SEED));
-    }
+    if (raw) setCors(JSON.parse(raw));
+    else { setCors(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }
     setLoading(false);
   }, []);
 
-  const persist = useCallback((next: COR[]) => {
-    setCors(next);
-    localStorage.setItem(KEY, JSON.stringify(next));
-  }, []);
-
+  const persist = useCallback((next: COR[]) => { setCors(next); localStorage.setItem(KEY, JSON.stringify(next)); }, []);
   const addCOR = useCallback((cor: COR) => persist([cor, ...cors]), [cors, persist]);
   const updateCOR = useCallback((id: string, updates: Partial<COR>) => {
     persist(cors.map(c => c.id === id ? { ...c, ...updates } : c));
