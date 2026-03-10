@@ -226,7 +226,7 @@ const CORPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="table-header">
-                    {activeTab === 'assigned' && <th className="text-left px-4 py-3">From</th>}
+                    
                     <th className="text-left px-4 py-3">COR #</th>
                     <th className="text-left px-4 py-3">COR Name</th>
                     <th className="text-left px-4 py-3">Client</th>
