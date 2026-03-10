@@ -1,5 +1,26 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
+export type ActivityAction =
+  | 'created'
+  | 'updated'
+  | 'status_changed'
+  | 'file_uploaded'
+  | 'image_uploaded'
+  | 'file_removed'
+  | 'image_removed'
+  | 'bill_extracted'
+  | 'bill_applied'
+  | 'stock_linked'
+  | 'note_added';
+
+export interface ActivityEntry {
+  id: string;
+  timestamp: string;
+  action: ActivityAction;
+  description: string;
+  actor: string;
+}
+
 export interface COR {
   id: string;
   corName: string;
@@ -19,6 +40,7 @@ export interface COR {
   fileUrls: string[];
   status: 'Paid' | 'Ongoing' | 'Cancelled';
   projectId?: string;
+  activityLog: ActivityEntry[];
 }
 
 interface CORContextType {
@@ -30,6 +52,14 @@ interface CORContextType {
   getCORById: (id: string) => COR | undefined;
 }
 
+const makeEntry = (action: ActivityAction, description: string, timestamp?: string): ActivityEntry => ({
+  id: crypto.randomUUID(),
+  timestamp: timestamp || new Date().toISOString(),
+  action,
+  description,
+  actor: 'Admin',
+});
+
 const SEED: COR[] = [
   {
     id: crypto.randomUUID(), corName: "Cleanup after plasterer damage",
@@ -39,7 +69,8 @@ const SEED: COR[] = [
     corNumber: "COR-2024-001", vatNumber: "ABN 51 123 456 789",
     vat: 10, price: 1800, paidPercentage: 100,
     location: "42 George St, Sydney NSW 2000",
-    status: "Paid", pictureUrls: [], fileUrls: []
+    status: "Paid", pictureUrls: [], fileUrls: [],
+    activityLog: [makeEntry('created', 'COR created', '2024-02-15T08:00:00.000Z')]
   },
   {
     id: crypto.randomUUID(), corName: "Damaged drywall rectification",
@@ -49,7 +80,8 @@ const SEED: COR[] = [
     corNumber: "COR-2024-002", vatNumber: "ABN 72 987 654 321",
     vat: 10, price: 4200, paidPercentage: 50,
     location: "17 Collins St, Melbourne VIC 3000",
-    status: "Ongoing", pictureUrls: [], fileUrls: []
+    status: "Ongoing", pictureUrls: [], fileUrls: [],
+    activityLog: [makeEntry('created', 'COR created', '2024-03-08T08:00:00.000Z')]
   },
   {
     id: crypto.randomUUID(), corName: "Electrical conduit rerouting",
@@ -59,7 +91,8 @@ const SEED: COR[] = [
     corNumber: "COR-2024-003", vatNumber: "",
     vat: 10, price: 950, paidPercentage: 0,
     location: "9 Roma St, Brisbane QLD 4000",
-    status: "Cancelled", pictureUrls: [], fileUrls: []
+    status: "Cancelled", pictureUrls: [], fileUrls: [],
+    activityLog: [makeEntry('created', 'COR created', '2024-01-22T08:00:00.000Z')]
   }
 ];
 
@@ -72,7 +105,11 @@ export const CORProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const raw = localStorage.getItem(KEY);
-    if (raw) setCors(JSON.parse(raw));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Ensure activityLog exists on loaded records
+      setCors(parsed.map((c: any) => ({ ...c, activityLog: c.activityLog || [] })));
+    }
     else { setCors(SEED); localStorage.setItem(KEY, JSON.stringify(SEED)); }
     setLoading(false);
   }, []);
@@ -97,3 +134,5 @@ export const useCOR = () => {
   if (!ctx) throw new Error("useCOR must be used within CORProvider");
   return ctx;
 };
+
+export { makeEntry };

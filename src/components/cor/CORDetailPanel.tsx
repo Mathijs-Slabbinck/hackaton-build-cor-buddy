@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock } from 'lucide-react';
-import { useCOR, type COR } from '@/contexts/CORContext';
+import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare } from 'lucide-react';
+import { useCOR, type COR, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
-import { StatusBadge, formatAUD, formatDate, PaidBar } from '@/components/SharedUI';
+import { StatusBadge, formatEUR, formatDate, PaidBar, relativeTime } from '@/components/SharedUI';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -21,6 +21,27 @@ const segments = (options: string[], value: string, onChange: (v: string) => voi
   </div>
 );
 
+const ACTIVITY_ICONS: Record<string, { icon: any; color: string }> = {
+  created: { icon: PlusCircle, color: '#009A93' },
+  updated: { icon: Edit, color: '#44C8F5' },
+  status_changed: { icon: RefreshCw, color: '#FFED00' },
+  file_uploaded: { icon: Upload, color: '#44C8F5' },
+  image_uploaded: { icon: Upload, color: '#44C8F5' },
+  file_removed: { icon: Trash2, color: '#EC008C' },
+  image_removed: { icon: Trash2, color: '#EC008C' },
+  bill_extracted: { icon: Scan, color: '#44C8F5' },
+  bill_applied: { icon: CheckCircle, color: '#009A93' },
+  stock_linked: { icon: Link, color: '#856A00' },
+  note_added: { icon: MessageSquare, color: '#6B7280' },
+};
+
+const SectionDivider = ({ label }: { label: string }) => (
+  <div className="flex items-center gap-2 mt-5 mb-3">
+    <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground whitespace-nowrap">{label}</span>
+    <div className="flex-1 h-px bg-border" />
+  </div>
+);
+
 const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
   const { items: stockItems } = useStock();
@@ -33,6 +54,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const [extractEditable, setExtractEditable] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [autoStatusNote, setAutoStatusNote] = useState(false);
+  const [noteText, setNoteText] = useState('');
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -40,7 +62,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const cor = getCORById(corId);
 
-  // Auto-status for edit
   useEffect(() => {
     if (!editing || !cor) return;
     const p = Number(form.price ?? cor.price);
@@ -59,9 +80,15 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   if (!cor) return null;
 
   const total = cor.price + cor.price * cor.vat / 100;
+  const activityLog = cor.activityLog || [];
+
+  const addActivity = (action: COR['activityLog'][0]['action'], description: string) => {
+    const entry = makeEntry(action, description);
+    updateCOR(corId, { activityLog: [...activityLog, entry] });
+  };
 
   const startEdit = () => {
-    const amountPaid = cor.paidPercentage / 100 * (cor.price + cor.price * cor.vat / 100);
+    const amountPaid = cor.paidPercentage / 100 * total;
     setForm({ ...cor, amountPaid });
     setEditing(true);
     setAutoStatusNote(false);
@@ -81,6 +108,14 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (editOverpaid) return;
     const updates = { ...form, paidPercentage: Math.round(editPaidPct * 10) / 10 };
     delete (updates as any).amountPaid;
+    
+    const entries = [...activityLog];
+    entries.push(makeEntry('updated', 'Record updated'));
+    if (form.status && form.status !== cor.status) {
+      entries.push(makeEntry('status_changed', `Status changed to ${form.status}`));
+    }
+    updates.activityLog = entries;
+    
     updateCOR(corId, updates);
     setEditing(false);
     toast.success('Record updated ✓');
@@ -93,7 +128,10 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => { updateCOR(corId, { pictureUrls: [...cor.pictureUrls, reader.result as string] }); };
+      reader.onload = () => {
+        updateCOR(corId, { pictureUrls: [...cor.pictureUrls, reader.result as string] });
+        addActivity('image_uploaded', 'Image attached');
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -103,13 +141,22 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => { updateCOR(corId, { fileUrls: [...cor.fileUrls, reader.result as string] }); };
+      reader.onload = () => {
+        updateCOR(corId, { fileUrls: [...cor.fileUrls, reader.result as string] });
+        addActivity('file_uploaded', 'Document attached');
+      };
       reader.readAsDataURL(file);
     });
   };
 
-  const removeImage = (idx: number) => { updateCOR(corId, { pictureUrls: cor.pictureUrls.filter((_, i) => i !== idx) }); };
-  const removeFile = (idx: number) => { updateCOR(corId, { fileUrls: cor.fileUrls.filter((_, i) => i !== idx) }); };
+  const removeImage = (idx: number) => {
+    updateCOR(corId, { pictureUrls: cor.pictureUrls.filter((_, i) => i !== idx) });
+    addActivity('image_removed', 'Image removed');
+  };
+  const removeFile = (idx: number) => {
+    updateCOR(corId, { fileUrls: cor.fileUrls.filter((_, i) => i !== idx) });
+    addActivity('file_removed', 'Document removed');
+  };
 
   const handleExtract = async () => {
     if (cor.fileUrls.length === 0) {
@@ -133,7 +180,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
             role: 'user',
             content: [
               { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
-              { type: 'text', text: 'Extract the following fields from this Australian construction invoice and return ONLY a valid JSON object with no markdown, no explanation, no backticks. Fields: supplier (string), invoiceNumber (string), date (ISO date string YYYY-MM-DD), amount (number, excl GST if shown separately), lineItem (string, first or main line item description). If a field cannot be found, use null.' }
+              { type: 'text', text: 'Extract the following fields from this construction invoice and return ONLY a valid JSON object with no markdown, no explanation, no backticks. Fields: supplier (string), invoiceNumber (string), date (ISO date string YYYY-MM-DD), amount (number, excl GST/VAT if shown separately), lineItem (string, first or main line item description). If a field cannot be found, use null.' }
             ]
           }]
         })
@@ -150,6 +197,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
         lineItem: parsed.lineItem || '',
       });
       setExtractEditable(false);
+      addActivity('bill_extracted', 'Bill data extracted from PDF');
     } catch {
       toast.error('Extraction failed. You can enter details manually.');
       setExtractedData({ supplier: '', invoiceNumber: '', date: '', amount: '', lineItem: '' });
@@ -168,6 +216,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (extractedData.lineItem) updates.productName = extractedData.lineItem;
     updateCOR(corId, updates);
     setExtractedData(null);
+    addActivity('bill_applied', 'Extracted bill data applied to record');
     toast.success('Bill data applied to record ✓');
   };
 
@@ -175,11 +224,19 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const linkedStock = stockItems.filter(s => s.linkedCorId === corId);
 
+  const handleAddNote = () => {
+    if (!noteText.trim()) return;
+    addActivity('note_added', noteText.trim());
+    setNoteText('');
+  };
+
   const tabs = [
     { key: 'details', label: 'Details' },
     { key: 'files', label: 'Files & Images' },
     { key: 'activity', label: 'Activity' },
   ] as const;
+
+  const sortedLog = [...activityLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <>
@@ -206,51 +263,57 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'details' && !editing && (
-            <div className="space-y-5">
+            <div className="space-y-1">
+              <SectionDivider label="Client Information" />
               <div className="grid grid-cols-2 gap-4">
-                {([
-                  ['Client Kind', cor.clientKind], ['Client Name', cor.clientName],
-                  ['VAT / ABN', cor.vatNumber || '—'], ['Product Type', cor.productType],
-                  ['Product Name', cor.productName], ['Location', cor.location],
-                  ['COR Date', formatDate(cor.corDate)], ['Created Date', formatDate(cor.creationDate)],
-                  ['Price (excl VAT)', formatAUD(cor.price)], ['VAT %', `${cor.vat}%`],
-                  ['Total incl. VAT', formatAUD(total)],
-                ] as [string, string][]).map(([label, value]) => (
-                  <div key={label}>
-                    <p className="label-uppercase text-[11px] mb-1">{label}</p>
-                    <p className="text-sm">{value}</p>
-                  </div>
-                ))}
-                <div>
-                  <p className="label-uppercase text-[11px] mb-1">Paid Percentage</p>
-                  <div className="w-32"><PaidBar pct={cor.paidPercentage} /></div>
-                </div>
+                <div><p className="label-uppercase text-[11px] mb-1">Client Kind</p><p className="text-sm">{cor.clientKind}</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">Client Name</p><p className="text-sm">{cor.clientName}</p></div>
+                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">VAT / ABN</p><p className="text-sm">{cor.vatNumber || '—'}</p></div>
+              </div>
+
+              <SectionDivider label="Product / Service" />
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="label-uppercase text-[11px] mb-1">Product Name</p><p className="text-sm">{cor.productName}</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">Product Type</p><p className="text-sm">{cor.productType}</p></div>
+                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">Location</p><p className="text-sm">{cor.location}</p></div>
+              </div>
+
+              <SectionDivider label="Financials" />
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="label-uppercase text-[11px] mb-1">Price (excl VAT)</p><p className="text-sm">{formatEUR(cor.price)}</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">VAT %</p><p className="text-sm">{cor.vat}%</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">Total incl. VAT</p><p className="text-sm">{formatEUR(total)}</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">Paid Percentage</p><div className="w-32"><PaidBar pct={cor.paidPercentage} /></div></div>
+              </div>
+
+              <SectionDivider label="Record Info" />
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="label-uppercase text-[11px] mb-1">COR Date</p><p className="text-sm">{formatDate(cor.corDate)}</p></div>
+                <div><p className="label-uppercase text-[11px] mb-1">Created Date</p><p className="text-sm">{formatDate(cor.creationDate)}</p></div>
               </div>
               <div className="text-center pt-2"><StatusBadge status={cor.status} /></div>
 
               {/* Linked Stock Items */}
-              <div>
-                <p className="label-uppercase text-[11px] mb-2 border-t border-border pt-4">Linked Stock Items</p>
-                {linkedStock.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No stock items linked to this COR.</p>
-                ) : (
-                  <table className="w-full text-xs">
-                    <thead><tr className="table-header"><th className="text-left px-2 py-1.5">Item Name</th><th className="text-left px-2 py-1.5">SKU</th><th className="text-left px-2 py-1.5">Qty</th><th className="text-left px-2 py-1.5">Unit Cost</th></tr></thead>
-                    <tbody>
-                      {linkedStock.map(s => (
-                        <tr key={s.id} className="border-b border-border">
-                          <td className="px-2 py-1.5 font-medium">{s.itemName}</td>
-                          <td className="px-2 py-1.5 text-muted-foreground">{s.sku}</td>
-                          <td className="px-2 py-1.5">{s.quantityOnHand}</td>
-                          <td className="px-2 py-1.5">{formatAUD(s.unitCost)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+              <SectionDivider label="Linked Stock Items" />
+              {linkedStock.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No stock items linked to this COR.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead><tr className="table-header"><th className="text-left px-2 py-1.5">Item Name</th><th className="text-left px-2 py-1.5">SKU</th><th className="text-left px-2 py-1.5">Qty</th><th className="text-left px-2 py-1.5">Unit Cost</th></tr></thead>
+                  <tbody>
+                    {linkedStock.map(s => (
+                      <tr key={s.id} className="border-b border-border">
+                        <td className="px-2 py-1.5 font-medium">{s.itemName}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{s.sku}</td>
+                        <td className="px-2 py-1.5">{s.quantityOnHand}</td>
+                        <td className="px-2 py-1.5">{formatEUR(s.unitCost)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-              <button onClick={startEdit} className="w-full py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Edit Record</button>
+              <button onClick={startEdit} className="w-full py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card mt-4">Edit Record</button>
             </div>
           )}
 
@@ -294,7 +357,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 {segments(['Service', 'Product'], form.productType || cor.productType, v => setForm(f => ({ ...f, productType: v as COR['productType'] })))}
               </div>
               <div>
-                <label className="label-uppercase block mb-1.5">Price AUD</label>
+                <label className="label-uppercase block mb-1.5">Price EUR</label>
                 <input type="number" className={inputCls} value={form.price ?? cor.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} />
               </div>
               <div>
@@ -302,9 +365,9 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 <input type="number" className={inputCls} value={form.vat ?? cor.vat} onChange={e => setForm(f => ({ ...f, vat: Number(e.target.value) }))} />
               </div>
               <div>
-                <label className="label-uppercase block mb-1.5">Amount Paid AUD</label>
+                <label className="label-uppercase block mb-1.5">Amount Paid EUR</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
                   <input type="number" min={0} step={0.01} placeholder="0.00" className={`${inputCls} pl-7`} value={form.amountPaid ?? 0} onChange={e => setForm(f => ({ ...f, amountPaid: Number(e.target.value) }))} />
                 </div>
                 {editOverpaid && <p className="text-destructive text-xs mt-1">Paid amount cannot exceed total</p>}
@@ -398,7 +461,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                               onChange={e => setExtractedData(prev => prev ? { ...prev, [key]: e.target.value } : prev)}
                             />
                           ) : (
-                            <p className="font-medium">{key === 'amount' && extractedData[key] ? `$${Number(extractedData[key]).toFixed(2)}` : key === 'date' && extractedData[key] ? formatDate(extractedData[key]) : extractedData[key] || '—'}</p>
+                            <p className="font-medium">{key === 'amount' && extractedData[key] ? `€${Number(extractedData[key]).toFixed(2)}` : key === 'date' && extractedData[key] ? formatDate(extractedData[key]) : extractedData[key] || '—'}</p>
                           )}
                         </div>
                       ))}
@@ -411,9 +474,49 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
           )}
 
           {tab === 'activity' && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Clock size={40} className="text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">Activity log coming soon</p>
+            <div>
+              {/* Add note */}
+              <div className="flex gap-2 mb-6">
+                <input
+                  className={`${inputCls} flex-1`}
+                  placeholder="Add a manual note..."
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                />
+                <button onClick={handleAddNote} className="bg-primary text-primary-foreground font-semibold rounded-lg px-4 py-2 text-sm hover:bg-[#007A74] transition-colors whitespace-nowrap">Add note</button>
+              </div>
+
+              {sortedLog.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Clock size={36} className="text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No activity recorded yet</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  {sortedLog.map((entry, i) => {
+                    const config = ACTIVITY_ICONS[entry.action] || ACTIVITY_ICONS.note_added;
+                    const IconComp = config.icon;
+                    return (
+                      <div key={entry.id} className="flex gap-3 relative">
+                        {/* Timeline line */}
+                        {i < sortedLog.length - 1 && (
+                          <div className="absolute left-4 top-8 bottom-0 w-px bg-border" />
+                        )}
+                        {/* Icon */}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10" style={{ background: config.color + '20' }}>
+                          <IconComp size={14} style={{ color: config.color }} />
+                        </div>
+                        {/* Content */}
+                        <div className="pb-5 min-w-0">
+                          <p className="text-sm font-semibold">{entry.description}</p>
+                          <p className="text-xs text-muted-foreground">{entry.actor} · {relativeTime(entry.timestamp)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -41,7 +41,6 @@ const EmployeesPage = () => {
     if (!form.fullName.trim()) errs.fullName = 'Required';
     if (!form.role.trim()) errs.role = 'Required';
     if (!form.email.trim()) errs.email = 'Required';
-    if (!form.assignedProject.trim()) errs.assignedProject = 'Required';
     if (!form.dailyRate) errs.dailyRate = 'Required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -109,10 +108,10 @@ const EmployeesPage = () => {
                     <tr key={e.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
                       <td className="px-4 py-3 font-medium">{e.fullName}</td>
                       <td className="px-4 py-3">{e.role}</td>
-                      <td className="px-4 py-3">{e.assignedProject}</td>
+                      <td className="px-4 py-3">{e.assignedProject || '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">{e.startDate ? formatDate(e.startDate) : '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">{e.endDate ? formatDate(e.endDate) : '—'}</td>
-                      <td className="px-4 py-3">${e.dailyRate} /day</td>
+                      <td className="px-4 py-3">€{e.dailyRate} /day</td>
                       <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -151,18 +150,17 @@ const EmployeesPage = () => {
               <div><label className="label-uppercase block mb-1.5">Email *</label><input type="email" className={inputCls('email')} value={form.email} onChange={e => set('email', e.target.value)} />{errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Phone</label><input className={inputCls('phone')} placeholder="04XX XXX XXX" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
               <div>
-                <label className="label-uppercase block mb-1.5">Assigned Project *</label>
+                <label className="label-uppercase block mb-1.5">Assigned Project</label>
                 <select className={inputCls('assignedProject')} value={form.assignedProject} onChange={e => set('assignedProject', e.target.value)}>
-                  <option value="">Select project...</option>
+                  <option value="">— No project assigned —</option>
                   {projects.map(p => <option key={p.id} value={p.projectName}>{p.projectName}</option>)}
                 </select>
-                {errors.assignedProject && <p className="text-destructive text-xs mt-1">{errors.assignedProject}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="label-uppercase block mb-1.5">Start Date</label><input type="date" className={inputCls('startDate')} value={form.startDate} onChange={e => set('startDate', e.target.value)} /></div>
                 <div><label className="label-uppercase block mb-1.5">End Date</label><input type="date" className={inputCls('endDate')} value={form.endDate} onChange={e => set('endDate', e.target.value)} /></div>
               </div>
-              <div><label className="label-uppercase block mb-1.5">Daily Rate AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} className={`${inputCls('dailyRate')} pl-7`} value={form.dailyRate} onChange={e => set('dailyRate', e.target.value)} /></div>{errors.dailyRate && <p className="text-destructive text-xs mt-1">{errors.dailyRate}</p>}</div>
+              <div><label className="label-uppercase block mb-1.5">Daily Rate EUR *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} className={`${inputCls('dailyRate')} pl-7`} value={form.dailyRate} onChange={e => set('dailyRate', e.target.value)} /></div>{errors.dailyRate && <p className="text-destructive text-xs mt-1">{errors.dailyRate}</p>}</div>
               <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>On Leave</option><option>Completed</option></select></div>
             </div>
             <div className="p-6 pt-0 flex justify-between">

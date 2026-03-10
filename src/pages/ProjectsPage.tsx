@@ -1,13 +1,23 @@
 import { useState } from 'react';
-import { Briefcase, PlayCircle, PauseCircle, Pencil, Trash2, Plus, Loader2, X } from 'lucide-react';
+import { Briefcase, PlayCircle, PauseCircle, Pencil, Trash2, Plus, Loader2, X, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
-import { StatusBadge, formatAUD, formatDate } from '@/components/SharedUI';
+import { StatusBadge, formatEUR, formatDate } from '@/components/SharedUI';
 import { useProjects, type Project } from '@/contexts/ProjectContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+
+const BudgetStatusBadge = ({ budget, spent }: { budget: number; spent: number }) => {
+  if (spent > budget) {
+    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEE9D6', color: '#C2410C' }}><TrendingUp size={12} /> Over Budget</span>;
+  }
+  if (spent >= budget * 0.9) {
+    return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-light" style={{ color: '#856A00' }}><AlertTriangle size={12} /> Near Limit</span>;
+  }
+  return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent text-primary"><CheckCircle size={12} /> On Track</span>;
+};
 
 const ProjectsPage = () => {
   const { projects, loading, addProject, updateProject, deleteProject } = useProjects();
@@ -18,7 +28,7 @@ const ProjectsPage = () => {
 
   useBodyScrollLock(modalOpen);
 
-  const emptyForm = { projectName: '', clientName: '', location: '', startDate: '', endDate: '', budget: '', status: 'Active' as Project['status'], description: '' };
+  const emptyForm = { projectName: '', clientName: '', location: '', startDate: '', endDate: '', budget: '', amountSpent: '0', status: 'Active' as Project['status'], description: '' };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -28,7 +38,7 @@ const ProjectsPage = () => {
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (p: Project) => {
-    setForm({ ...p, budget: String(p.budget) } as any);
+    setForm({ ...p, budget: String(p.budget), amountSpent: String(p.amountSpent) } as any);
     setEditId(p.id); setErrors({}); setModalOpen(true);
   };
 
@@ -48,7 +58,8 @@ const ProjectsPage = () => {
       id: editId || crypto.randomUUID(),
       projectName: form.projectName.trim(), clientName: form.clientName.trim(),
       location: form.location.trim(), startDate: form.startDate, endDate: form.endDate,
-      budget: Number(form.budget), status: form.status, description: form.description.trim(),
+      budget: Number(form.budget), amountSpent: Number(form.amountSpent) || 0,
+      status: form.status, description: form.description.trim(),
     };
     if (editId) updateProject(editId, data);
     else addProject(data);
@@ -65,6 +76,8 @@ const ProjectsPage = () => {
   const totalProjects = projects.length;
   const activeCount = projects.filter(p => p.status === 'Active').length;
   const onHoldCount = projects.filter(p => p.status === 'On Hold').length;
+
+  const remaining = Number(form.budget || 0) - Number(form.amountSpent || 0);
 
   return (
     <AppLayout>
@@ -91,27 +104,34 @@ const ProjectsPage = () => {
                 <thead><tr className="table-header">
                   <th className="text-left px-4 py-3">Project Name</th><th className="text-left px-4 py-3">Client</th>
                   <th className="text-left px-4 py-3">Location</th><th className="text-left px-4 py-3">Start</th>
-                  <th className="text-left px-4 py-3">End</th><th className="text-left px-4 py-3">Budget (AUD)</th>
+                  <th className="text-left px-4 py-3">End</th><th className="text-left px-4 py-3">Budget (€)</th>
+                  <th className="text-left px-4 py-3">Spent (€)</th><th className="text-left px-4 py-3">Budget Status</th>
                   <th className="text-left px-4 py-3">Status</th><th className="text-left px-4 py-3">Actions</th>
                 </tr></thead>
                 <tbody>
-                  {paged.map((p, i) => (
-                    <tr key={p.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
-                      <td className="px-4 py-3 font-medium">{p.projectName}</td>
-                      <td className="px-4 py-3">{p.clientName}</td>
-                      <td className="px-4 py-3 max-w-[160px] truncate">{p.location}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{p.startDate ? formatDate(p.startDate) : '—'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{p.endDate ? formatDate(p.endDate) : '—'}</td>
-                      <td className="px-4 py-3 font-medium">{formatAUD(p.budget)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(p)} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                          <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paged.map((p, i) => {
+                    const isOver = p.amountSpent > p.budget;
+                    return (
+                      <tr key={p.id} className={`group transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}
+                        style={isOver ? { borderLeft: '3px solid #C2410C' } : undefined}>
+                        <td className="px-4 py-3 font-medium">{p.projectName}</td>
+                        <td className="px-4 py-3">{p.clientName}</td>
+                        <td className="px-4 py-3 max-w-[160px] truncate">{p.location}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{p.startDate ? formatDate(p.startDate) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{p.endDate ? formatDate(p.endDate) : '—'}</td>
+                        <td className="px-4 py-3 font-medium">{formatEUR(p.budget)}</td>
+                        <td className="px-4 py-3 font-medium">{formatEUR(p.amountSpent)}</td>
+                        <td className="px-4 py-3"><BudgetStatusBadge budget={p.budget} spent={p.amountSpent} /></td>
+                        <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(p)} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                            <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -143,7 +163,21 @@ const ProjectsPage = () => {
                 <div><label className="label-uppercase block mb-1.5">Start Date</label><input type="date" className={inputCls('startDate')} value={form.startDate} onChange={e => set('startDate', e.target.value)} /></div>
                 <div><label className="label-uppercase block mb-1.5">End Date</label><input type="date" className={inputCls('endDate')} value={form.endDate} onChange={e => set('endDate', e.target.value)} /></div>
               </div>
-              <div><label className="label-uppercase block mb-1.5">Budget AUD *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span><input type="number" min={0} className={`${inputCls('budget')} pl-7`} value={form.budget} onChange={e => set('budget', e.target.value)} /></div>{errors.budget && <p className="text-destructive text-xs mt-1">{errors.budget}</p>}</div>
+              <div><label className="label-uppercase block mb-1.5">Budget EUR *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} className={`${inputCls('budget')} pl-7`} value={form.budget} onChange={e => set('budget', e.target.value)} /></div>{errors.budget && <p className="text-destructive text-xs mt-1">{errors.budget}</p>}</div>
+              <div>
+                <label className="label-uppercase block mb-1.5">Amount Spent (€)</label>
+                <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} step={0.01} className={`${inputCls('amountSpent')} pl-7`} value={form.amountSpent} onChange={e => set('amountSpent', e.target.value)} /></div>
+              </div>
+              {form.budget && (
+                <div className="text-sm">
+                  <span className="label-uppercase text-[11px]">Remaining Budget: </span>
+                  {remaining >= 0 ? (
+                    <span className="font-bold text-primary">{formatEUR(remaining)} remaining</span>
+                  ) : (
+                    <span className="font-bold" style={{ color: '#C2410C' }}>{formatEUR(Math.abs(remaining))} over budget</span>
+                  )}
+                </div>
+              )}
               <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>Completed</option><option>On Hold</option></select></div>
               <div><label className="label-uppercase block mb-1.5">Description</label><textarea rows={3} className={inputCls('description')} value={form.description} onChange={e => set('description', e.target.value)} /></div>
             </div>

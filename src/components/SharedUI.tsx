@@ -11,8 +11,11 @@ export const StatusBadge = ({ status }: { status: string }) => {
   return <span className={cls}>{status}</span>;
 };
 
-export const formatAUD = (n: number) =>
-  `$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const formatEUR = (n: number) =>
+  `€${n.toLocaleString('en-IE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** @deprecated Use formatEUR instead */
+export const formatAUD = formatEUR;
 
 export const formatDate = (iso: string) => {
   if (!iso) return '—';
@@ -28,3 +31,16 @@ export const PaidBar = ({ pct }: { pct: number }) => (
     <span className="text-xs text-muted-foreground mt-0.5 block">{pct}%</span>
   </div>
 );
+
+export const relativeTime = (iso: string) => {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diff = now - then;
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+  return formatDate(iso).replace(/\s/g, ' ') + ' ' + new Date(iso).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+};

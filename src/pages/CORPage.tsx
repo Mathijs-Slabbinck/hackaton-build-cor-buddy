@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react';
-import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon } from 'lucide-react';
+import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
-import { StatusBadge, formatAUD, formatDate, PaidBar } from '@/components/SharedUI';
+import { StatusBadge, formatEUR, formatDate, PaidBar } from '@/components/SharedUI';
 import { useCOR } from '@/contexts/CORContext';
 import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
@@ -76,30 +76,46 @@ const CORPage = () => {
         }
       />
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
-        <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
-        <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
-        <SummaryCard label="Total Value (AUD)" value={formatAUD(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
-      </div>
-
-      {/* Pie chart */}
-      <div className="card-cor p-5 mb-6">
-        <h3 className="font-bold text-base mb-3">COR Status Overview</h3>
-        {pieData.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No records yet</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
-              </Pie>
-              <Tooltip />
-              <Legend layout="vertical" verticalAlign="middle" align="right" />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      {/* Row 1: Stats (60%) + Pie Chart (40%) */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="col-span-3 grid grid-cols-2 gap-4">
+          <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
+          <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
+          <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
+          <SummaryCard label="Total Value (EUR)" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
+        </div>
+        <div className="col-span-2 card-cor p-5 flex flex-col">
+          <h3 className="font-bold text-base mb-2">Status Overview</h3>
+          {pieData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 flex-1 flex items-center justify-center">No records yet</p>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center">
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-around mt-2">
+                {[
+                  { label: 'Paid', count: paid, color: '#009A93' },
+                  { label: 'Ongoing', count: ongoing, color: '#856A00' },
+                  { label: 'Cancelled', count: cancelled, color: '#EC008C' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
+                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">{s.label}</span>
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: s.color }}>{s.count}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -142,7 +158,7 @@ const CORPage = () => {
                     <th className="text-left px-4 py-3">Type</th>
                     <th className="text-left px-4 py-3">Location</th>
                     <th className="text-left px-4 py-3">Date</th>
-                    <th className="text-left px-4 py-3">Total (AUD)</th>
+                    <th className="text-left px-4 py-3">Total (EUR)</th>
                     <th className="text-left px-4 py-3">Paid %</th>
                     <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><Paperclip size={12} />Attach.</span></th>
                     <th className="text-left px-4 py-3">Status</th>
@@ -164,10 +180,15 @@ const CORPage = () => {
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${c.clientKind === 'Company' ? 'bg-accent text-primary' : 'bg-blue-light text-blue'}`}>{c.clientKind}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">{c.productType}</td>
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-1.5">
+                            {c.productType === 'Service' ? <Wrench size={14} className="text-muted-foreground" /> : <PackageIcon size={14} className="text-muted-foreground" />}
+                            {c.productType}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 max-w-[160px] truncate">{c.location}</td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDate(c.corDate)}</td>
-                        <td className="px-4 py-3 font-medium">{formatAUD(c.price + c.price * c.vat / 100)}</td>
+                        <td className="px-4 py-3 font-medium">{formatEUR(c.price + c.price * c.vat / 100)}</td>
                         <td className="px-4 py-3 w-24"><PaidBar pct={c.paidPercentage} /></td>
                         <td className="px-4 py-3">
                           {imgCount === 0 && fileCount === 0 ? (

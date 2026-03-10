@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
-import { StatusBadge, formatAUD, formatDate } from '@/components/SharedUI';
+import { StatusBadge, formatEUR, formatDate } from '@/components/SharedUI';
 import { useCOR } from '@/contexts/CORContext';
 import { useProjects } from '@/contexts/ProjectContext';
 import { useEmployees } from '@/contexts/EmployeeContext';
 import { useStock } from '@/contexts/StockContext';
-import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
@@ -23,31 +23,44 @@ const DashboardPage = () => {
   const openCors = cors.filter(c => c.status === 'Ongoing').length;
   const activeProjects = projects.filter(p => p.status === 'Active').length;
   const activeEmployees = employees.filter(e => e.status === 'Active').length;
-  const lowStock = stockItems.filter(i => i.quantityOnHand <= i.reorderLevel);
+  const lowStock = stockItems.filter(i => i.quantityOnHand < i.reorderLevel);
 
   const recentCors = useMemo(() =>
     [...cors].sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()).slice(0, 5),
     [cors]
   );
 
+  const paidCount = cors.filter(c => c.status === 'Paid').length;
+  const ongoingCount = cors.filter(c => c.status === 'Ongoing').length;
+  const cancelledCount = cors.filter(c => c.status === 'Cancelled').length;
+
   const pieData = useMemo(() => {
-    const paid = cors.filter(c => c.status === 'Paid').length;
-    const ongoing = cors.filter(c => c.status === 'Ongoing').length;
-    const cancelled = cors.filter(c => c.status === 'Cancelled').length;
     return [
-      { name: 'Paid', value: paid },
-      { name: 'Ongoing', value: ongoing },
-      { name: 'Cancelled', value: cancelled },
+      { name: 'Paid', value: paidCount },
+      { name: 'Ongoing', value: ongoingCount },
+      { name: 'Cancelled', value: cancelledCount },
     ].filter(d => d.value > 0);
-  }, [cors]);
+  }, [paidCount, ongoingCount, cancelledCount]);
 
   const barData = useMemo(() =>
     projects.map(p => ({
       name: p.projectName.length > 20 ? p.projectName.slice(0, 20) + '…' : p.projectName,
+      fullName: p.projectName,
       budget: p.budget,
     })),
     [projects]
   );
+
+  const CustomBarTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.[0]) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-sm">
+        <p className="font-semibold">{d.fullName}</p>
+        <p className="text-muted-foreground">Budget: {formatEUR(d.budget)}</p>
+      </div>
+    );
+  };
 
   return (
     <AppLayout>
@@ -77,7 +90,7 @@ const DashboardPage = () => {
                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{c.corNumber}</td>
                     <td className="px-3 py-2">{c.corName}</td>
                     <td className="px-3 py-2">{c.clientName}</td>
-                    <td className="px-3 py-2">{formatAUD(c.price + c.price * c.vat / 100)}</td>
+                    <td className="px-3 py-2">{formatEUR(c.price + c.price * c.vat / 100)}</td>
                     <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                   </tr>
                 ))}
@@ -95,15 +108,32 @@ const DashboardPage = () => {
           {pieData.length === 0 ? (
             <p className="text-muted-foreground text-sm py-8 text-center">No COR data yet</p>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65}>
-                  {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={170}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65}>
+                    {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-around mt-3">
+                {[
+                  { label: 'Paid', count: paidCount, color: '#009A93' },
+                  { label: 'Ongoing', count: ongoingCount, color: '#856A00' },
+                  { label: 'Cancelled', count: cancelledCount, color: '#EC008C' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
+                      <span className="text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">{s.label}</span>
+                    </div>
+                    <p className="text-[22px] font-bold" style={{ color: s.color }}>{s.count}</p>
+                    <p className="text-[11px] text-muted-foreground">records</p>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -119,9 +149,9 @@ const DashboardPage = () => {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                <XAxis type="number" tickFormatter={v => `€${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => formatAUD(v)} />
+                <Tooltip content={<CustomBarTooltip />} />
                 <Bar dataKey="budget" fill="#44C8F5" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -144,7 +174,7 @@ const DashboardPage = () => {
                     <p className="font-medium text-sm">{item.itemName}</p>
                     <p className="text-xs text-muted-foreground">{item.sku}</p>
                   </div>
-                  <span className="text-sm font-semibold text-destructive">{item.quantityOnHand} left (min {item.reorderLevel})</span>
+                  <span className="text-sm font-semibold text-destructive">{item.quantityOnHand} in stock (min {item.reorderLevel})</span>
                 </div>
               ))}
             </div>
