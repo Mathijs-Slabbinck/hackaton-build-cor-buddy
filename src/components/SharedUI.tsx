@@ -5,6 +5,7 @@ export const StatusBadge = ({ status }: { status: string }) => {
     status === 'Cancelled' ? 'status-cancelled' :
     status === 'Active' ? 'status-active' :
     status === 'On Leave' ? 'status-onleave' :
+    status === 'On Hold' ? 'status-onhold' :
     status === 'Completed' ? 'status-completed' :
     'status-completed';
   return <span className={cls}>{status}</span>;
@@ -14,6 +15,7 @@ export const formatAUD = (n: number) =>
   `$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const formatDate = (iso: string) => {
+  if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
 };
