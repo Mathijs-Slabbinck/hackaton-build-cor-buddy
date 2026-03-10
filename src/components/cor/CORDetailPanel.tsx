@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { exportSingleJSON, exportSinglePDF } from '@/lib/corExport';
 import { useCOR, type COR, type FieldDiff, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
