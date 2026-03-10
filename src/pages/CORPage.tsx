@@ -138,50 +138,47 @@ const CORPage = () => {
         }
       />
 
-      {(
-          {/* Row 1: Stats (60%) + Pie Chart (40%) */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            <div className="col-span-3 grid grid-cols-2 gap-4">
-              <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
-              <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
-              <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
-              <SummaryCard label="Total Value (EUR)" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
-            </div>
-            <div className="col-span-2 card-cor p-5 flex flex-col">
-              <h3 className="font-bold text-base mb-2">Status Overview</h3>
-              {pieData.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 flex-1 flex items-center justify-center">No records yet</p>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <ResponsiveContainer width="100%" height={130}>
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                        {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-around mt-2">
-                    {[
-                      { label: 'Paid', count: paid, color: '#009A93' },
-                      { label: 'Ongoing', count: ongoing, color: '#856A00' },
-                      { label: 'Cancelled', count: cancelled, color: '#EC008C' },
-                    ].map(s => (
-                      <div key={s.label} className="text-center">
-                        <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                          <span className="w-2 h-2 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
-                          <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">{s.label}</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: s.color }}>{s.count}</p>
-                      </div>
-                    ))}
+      {/* Row 1: Stats (60%) + Pie Chart (40%) */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="col-span-3 grid grid-cols-2 gap-4">
+          <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
+          <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
+          <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
+          <SummaryCard label="Total Value (EUR)" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
+        </div>
+        <div className="col-span-2 card-cor p-5 flex flex-col">
+          <h3 className="font-bold text-base mb-2">Status Overview</h3>
+          {pieData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 flex-1 flex items-center justify-center">No records yet</p>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center">
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-around mt-2">
+                {[
+                  { label: 'Paid', count: paid, color: '#009A93' },
+                  { label: 'Ongoing', count: ongoing, color: '#856A00' },
+                  { label: 'Cancelled', count: cancelled, color: '#EC008C' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
+                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">{s.label}</span>
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: s.color }}>{s.count}</p>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
