@@ -29,7 +29,7 @@ const CORPage = () => {
   const [typeFilter, setTypeFilter] = useState('All');
   const [clientFilter, setClientFilter] = useState('All');
   const [page, setPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'my' | 'assigned'>('my');
+  
 
   // Own company CORs
   const companyCors = useMemo(() =>
