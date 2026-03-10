@@ -418,7 +418,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) =
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="label-uppercase text-[11px] mb-1">Client Kind</p><p className="text-sm">{cor.clientKind}</p></div>
                 <div><p className="label-uppercase text-[11px] mb-1">Client Name</p><p className="text-sm">{cor.clientName}</p></div>
-                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">VAT / ABN</p><p className="text-sm">{cor.vatNumber || '—'}</p></div>
+                <div className="col-span-2"><p className="label-uppercase text-[11px] mb-1">VAT Number</p><p className="text-sm">{cor.vatNumber || '—'}</p></div>
               </div>
 
               <SectionDivider label="Product / Service" />
