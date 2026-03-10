@@ -131,31 +131,12 @@ const CORPage = () => {
         action={
           <div className="flex items-center gap-2">
             {exportButton}
-            {activeTab === 'my' && (
-              <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-                <Plus size={16} /> New COR
-              </button>
-            )}
+            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+              <Plus size={16} /> New COR
+            </button>
           </div>
         }
       />
-
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-border mb-6">
-        <button onClick={() => { setActiveTab('my'); setPage(0); }}
-          className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'my' ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-          My CORs
-        </button>
-        <button onClick={() => { setActiveTab('assigned'); setPage(0); }}
-          className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors relative ${activeTab === 'assigned' ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-          Assigned to Me
-          {assignedCors.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#EC008C' }}>
-              {assignedCors.length}
-            </span>
-          )}
-        </button>
-      </div>
 
       {activeTab === 'my' && (
         <>
