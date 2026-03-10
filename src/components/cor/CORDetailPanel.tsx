@@ -49,7 +49,7 @@ const SectionDivider = ({ label }: { label: string }) => (
 const DIFF_FIELDS: [keyof COR, string][] = [
   ['corName', 'COR Name'], ['clientKind', 'Client Kind'], ['clientName', 'Client Name'],
   ['productName', 'Product Name'], ['productType', 'Product Type'], ['corDate', 'COR Date'],
-  ['corNumber', 'COR Number'], ['vatNumber', 'VAT / ABN'], ['vat', 'VAT %'],
+  ['corNumber', 'COR Number'], ['vatNumber', 'VAT Number'], ['vat', 'VAT %'],
   ['price', 'Price'], ['paidPercentage', 'Paid %'], ['location', 'Location'],
   ['status', 'Status'], ['projectId', 'Project'],
 ];
