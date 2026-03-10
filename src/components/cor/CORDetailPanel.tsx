@@ -25,13 +25,14 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
   const { items: stockItems } = useStock();
   const { projects } = useProjects();
-  const cor = getCORById(corId);
   const [tab, setTab] = useState<'details' | 'files' | 'activity'>('details');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<COR> & { amountPaid?: number }>({});
   const [extracting, setExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<Record<string, string> | null>(null);
   const [extractEditable, setExtractEditable] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [autoStatusNote, setAutoStatusNote] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -39,7 +40,25 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
 
   const cor = getCORById(corId);
 
+  // Auto-status for edit
+  useEffect(() => {
+    if (!editing || !cor) return;
+    const p = Number(form.price ?? cor.price);
+    const v = Number(form.vat ?? cor.vat);
+    const t = p + p * v / 100;
+    const a = Number(form.amountPaid ?? 0);
+    if (t > 0 && a >= t) {
+      setForm(f => ({ ...f, status: 'Paid' }));
+      setAutoStatusNote(true);
+    } else if (autoStatusNote) {
+      setForm(f => ({ ...f, status: 'Ongoing' }));
+      setAutoStatusNote(false);
+    }
+  }, [editing, form.price, form.vat, form.amountPaid]);
+
   if (!cor) return null;
+
+  const total = cor.price + cor.price * cor.vat / 100;
 
   const startEdit = () => {
     const amountPaid = cor.paidPercentage / 100 * (cor.price + cor.price * cor.vat / 100);
@@ -57,20 +76,6 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const editAmountPaid = Number(form.amountPaid ?? 0);
   const editPaidPct = editTotal() > 0 ? Math.min((editAmountPaid / editTotal()) * 100, 100) : 0;
   const editOverpaid = editAmountPaid > editTotal() && editTotal() > 0;
-
-  // Auto-status for edit
-  useEffect(() => {
-    if (!editing) return;
-    const t = editTotal();
-    const a = editAmountPaid;
-    if (t > 0 && a >= t) {
-      setForm(f => ({ ...f, status: 'Paid' }));
-      setAutoStatusNote(true);
-    } else if (autoStatusNote) {
-      setForm(f => ({ ...f, status: 'Ongoing' }));
-      setAutoStatusNote(false);
-    }
-  }, [editing, form.price, form.vat, form.amountPaid]);
 
   const saveEdit = () => {
     if (editOverpaid) return;
