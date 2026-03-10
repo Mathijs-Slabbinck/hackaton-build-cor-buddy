@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Users, UserCheck, Coffee, Pencil, Trash2, Plus, Loader2, X } from 'lucide-react';
+import { Users, UserCheck, Coffee, Pencil, Trash2, Plus, Loader2, X, Search } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
@@ -19,6 +19,9 @@ const EmployeesPage = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [roleFilter, setRoleFilter] = useState('All');
 
   useBodyScrollLock(modalOpen);
 
@@ -26,9 +29,21 @@ const EmployeesPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const uniqueRoles = useMemo(() => [...new Set(employees.map(e => e.role))], [employees]);
+
+  const filtered = useMemo(() => {
+    return employees.filter(e => {
+      const q = search.toLowerCase();
+      if (q && !e.fullName.toLowerCase().includes(q) && !e.role.toLowerCase().includes(q) && !(e.assignedProject || '').toLowerCase().includes(q)) return false;
+      if (statusFilter !== 'All' && e.status !== statusFilter) return false;
+      if (roleFilter !== 'All' && e.role !== roleFilter) return false;
+      return true;
+    });
+  }, [employees, search, statusFilter, roleFilter]);
+
   const pageSize = 10;
-  const totalPages = Math.ceil(employees.length / pageSize);
-  const paged = employees.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (emp: Employee) => {
@@ -75,6 +90,8 @@ const EmployeesPage = () => {
   const active = employees.filter(e => e.status === 'Active').length;
   const onLeave = employees.filter(e => e.status === 'On Leave').length;
 
+  const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
+
   return (
     <AppLayout>
       <PageHeader title="Employee Planner" subtitle="Track crew assignments across projects"
@@ -86,8 +103,32 @@ const EmployeesPage = () => {
         <SummaryCard label="On Leave" value={onLeave} icon={Coffee} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Search</span>
+          <div className="relative min-w-[280px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input placeholder="Search by name, role, project..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</span>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option><option>Active</option><option>On Leave</option><option>Completed</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Role</span>
+          <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option>{uniqueRoles.map(r => <option key={r}>{r}</option>)}
+          </select>
+        </div>
+      </div>
+
       <div className="card-cor overflow-hidden">
-        {employees.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <Users size={48} className="text-border mb-3" />
             <p className="text-muted-foreground mb-4">No employees found</p>
@@ -125,7 +166,7 @@ const EmployeesPage = () => {
               </table>
             </div>
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, employees.length)} of {employees.length} results</span>
+              <span className="text-xs text-muted-foreground">Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} results</span>
               <div className="flex gap-2">
                 <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Prev</button>
                 <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-xs border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors bg-card">Next</button>

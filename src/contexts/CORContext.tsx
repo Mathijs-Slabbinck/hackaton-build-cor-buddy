@@ -13,12 +13,19 @@ export type ActivityAction =
   | 'stock_linked'
   | 'note_added';
 
+export interface FieldDiff {
+  field: string;
+  from: string;
+  to: string;
+}
+
 export interface ActivityEntry {
   id: string;
   timestamp: string;
   action: ActivityAction;
   description: string;
   actor: string;
+  diff?: FieldDiff[];
 }
 
 export interface COR {

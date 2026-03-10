@@ -134,17 +134,26 @@ const StockPage = () => {
       )}
 
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="relative min-w-[280px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input placeholder="Search by name, SKU..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
-            className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Search</span>
+          <div className="relative min-w-[280px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input placeholder="Search by name, SKU..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              className="w-full border-[1.5px] border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20" />
+          </div>
         </div>
-        <select value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(0); }} className={selectClasses}>
-          <option>All</option>{categories.map(c => <option key={c}>{c}</option>)}
-        </select>
-        <select value={supFilter} onChange={e => { setSupFilter(e.target.value); setPage(0); }} className={selectClasses}>
-          <option>All</option>{suppliers.map(s => <option key={s}>{s}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Category</span>
+          <select value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option>{categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Supplier</span>
+          <select value={supFilter} onChange={e => { setSupFilter(e.target.value); setPage(0); }} className={selectClasses}>
+            <option>All</option>{suppliers.map(s => <option key={s}>{s}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="card-cor overflow-hidden">
