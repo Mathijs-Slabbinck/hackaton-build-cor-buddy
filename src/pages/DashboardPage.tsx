@@ -1,15 +1,158 @@
-import { LayoutDashboard } from 'lucide-react';
+import { useMemo } from 'react';
+import { FileText, Briefcase, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
+import SummaryCard from '@/components/SummaryCard';
+import { StatusBadge, formatAUD, formatDate } from '@/components/SharedUI';
+import { useCOR } from '@/contexts/CORContext';
+import { useProjects } from '@/contexts/ProjectContext';
+import { useEmployees } from '@/contexts/EmployeeContext';
+import { useStock } from '@/contexts/StockContext';
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
-const DashboardPage = () => (
-  <AppLayout>
-    <PageHeader title="Dashboard" subtitle="Overview coming soon." />
-    <div className="flex flex-col items-center justify-center mt-32">
-      <LayoutDashboard size={64} className="text-border mb-4" />
-      <p className="text-muted-foreground">Analytics dashboard will appear here</p>
-    </div>
-  </AppLayout>
-);
+const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
+
+const DashboardPage = () => {
+  const navigate = useNavigate();
+  const { cors } = useCOR();
+  const { projects } = useProjects();
+  const { employees } = useEmployees();
+  const { items: stockItems } = useStock();
+
+  const openCors = cors.filter(c => c.status === 'Ongoing').length;
+  const activeProjects = projects.filter(p => p.status === 'Active').length;
+  const activeEmployees = employees.filter(e => e.status === 'Active').length;
+  const lowStock = stockItems.filter(i => i.quantityOnHand <= i.reorderLevel);
+
+  const recentCors = useMemo(() =>
+    [...cors].sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()).slice(0, 5),
+    [cors]
+  );
+
+  const pieData = useMemo(() => {
+    const paid = cors.filter(c => c.status === 'Paid').length;
+    const ongoing = cors.filter(c => c.status === 'Ongoing').length;
+    const cancelled = cors.filter(c => c.status === 'Cancelled').length;
+    return [
+      { name: 'Paid', value: paid },
+      { name: 'Ongoing', value: ongoing },
+      { name: 'Cancelled', value: cancelled },
+    ].filter(d => d.value > 0);
+  }, [cors]);
+
+  const barData = useMemo(() =>
+    projects.map(p => ({
+      name: p.projectName.length > 20 ? p.projectName.slice(0, 20) + '…' : p.projectName,
+      budget: p.budget,
+    })),
+    [projects]
+  );
+
+  return (
+    <AppLayout>
+      <PageHeader title="Dashboard" subtitle="Live overview across all operations" />
+
+      {/* Row 1: Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <SummaryCard label="Open CORs" value={openCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
+        <SummaryCard label="Active Projects" value={activeProjects} icon={Briefcase} iconBg="#EEF9FD" iconColor="#44C8F5" />
+        <SummaryCard label="Active Employees" value={activeEmployees} icon={Users} iconBg="#EAF5F5" iconColor="#009A93" />
+        <SummaryCard label="Low Stock Items" value={lowStock.length} icon={AlertTriangle} iconBg="#FEE2E2" iconColor="#EC008C" valueColor="#EC008C" />
+      </div>
+
+      {/* Row 2 */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        {/* Recent CORs - 60% */}
+        <div className="col-span-3 card-cor p-5">
+          <h3 className="font-bold text-base mb-3">Recent CORs</h3>
+          {recentCors.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4 text-center">No COR records yet</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="table-header"><th className="text-left px-3 py-2">COR #</th><th className="text-left px-3 py-2">Name</th><th className="text-left px-3 py-2">Client</th><th className="text-left px-3 py-2">Total</th><th className="text-left px-3 py-2">Status</th></tr></thead>
+              <tbody>
+                {recentCors.map(c => (
+                  <tr key={c.id} className="border-b border-border">
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{c.corNumber}</td>
+                    <td className="px-3 py-2">{c.corName}</td>
+                    <td className="px-3 py-2">{c.clientName}</td>
+                    <td className="px-3 py-2">{formatAUD(c.price + c.price * c.vat / 100)}</td>
+                    <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="text-right mt-2">
+            <button onClick={() => navigate('/cor')} className="text-sm text-primary font-semibold hover:underline">View all →</button>
+          </div>
+        </div>
+
+        {/* Pie chart - 40% */}
+        <div className="col-span-2 card-cor p-5">
+          <h3 className="font-bold text-base mb-3">COR Status Breakdown</h3>
+          {pieData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-8 text-center">No COR data yet</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65}>
+                  {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Row 3 */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Budget bar chart */}
+        <div className="card-cor p-5">
+          <h3 className="font-bold text-base mb-3">Project Budget Overview</h3>
+          {barData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-8 text-center">No projects yet</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => formatAUD(v)} />
+                <Bar dataKey="budget" fill="#44C8F5" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Low stock alerts */}
+        <div className="card-cor p-5">
+          <h3 className="font-bold text-base mb-3">Low Stock Alerts</h3>
+          {lowStock.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <CheckCircle size={32} className="text-primary mb-2" />
+              <p className="text-muted-foreground text-sm">All stock levels are healthy</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {lowStock.map(item => (
+                <div key={item.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div>
+                    <p className="font-medium text-sm">{item.itemName}</p>
+                    <p className="text-xs text-muted-foreground">{item.sku}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-destructive">{item.quantityOnHand} left (min {item.reorderLevel})</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </AppLayout>
+  );
+};
 
 export default DashboardPage;

@@ -84,6 +84,9 @@
   .status-onleave {
     @apply bg-lightyellow text-amber-dark text-xs px-2.5 py-0.5 rounded-full font-semibold;
   }
+  .status-onhold {
+    @apply bg-lightyellow text-amber-dark text-xs px-2.5 py-0.5 rounded-full font-semibold;
+  }
   .status-completed {
     @apply bg-muted text-muted-foreground text-xs px-2.5 py-0.5 rounded-full font-semibold;
   }
