@@ -10,7 +10,7 @@ export interface Employee {
   startDate: string;
   endDate: string;
   dailyRate: number;
-  status: 'Active' | 'On Leave' | 'Completed';
+  status: 'Active' | 'Inactive' | 'On Leave' | 'Completed';
 }
 
 interface EmployeeContextType {

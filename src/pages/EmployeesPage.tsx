@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Users, UserCheck, Coffee, Pencil, Trash2, Plus, Loader2, X, Search } from 'lucide-react';
+import { Users, UserCheck, Coffee, Pencil, Trash2, Loader2, X, Search, UserX } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
@@ -9,12 +9,16 @@ import { useProjects } from '@/contexts/ProjectContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useShifts } from '@/contexts/ShiftContext';
+import { generateShiftsFromEmployee } from '@/components/scheduler/syncUtils';
+import SchedulerSection from '@/components/scheduler/SchedulerSection';
 
 const roles = ['Electrician', 'Plumber', 'Plasterer', 'Carpenter', 'Site Manager', 'Labourer', 'HVAC Tech', 'Demolition Worker'];
 
 const EmployeesPage = () => {
-  const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { employees, loading, updateEmployee, deleteEmployee } = useEmployees();
   const { projects } = useProjects();
+  const { shifts, addShift, deleteShift: deleteShiftById } = useShifts();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -45,7 +49,6 @@ const EmployeesPage = () => {
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
-  const openAdd = () => { setForm(emptyForm); setEditId(null); setErrors({}); setModalOpen(true); };
   const openEdit = (emp: Employee) => {
     setForm({ ...emp, dailyRate: String(emp.dailyRate) } as any);
     setEditId(emp.id); setErrors({}); setModalOpen(true);
@@ -63,17 +66,26 @@ const EmployeesPage = () => {
 
   const save = () => {
     if (!validate()) return;
+    if (!editId) return;
     const data: Employee = {
-      id: editId || crypto.randomUUID(),
+      id: editId,
       fullName: form.fullName.trim(), role: form.role.trim(),
       email: form.email.trim(), phone: form.phone.trim(),
       assignedProject: form.assignedProject.trim(),
       startDate: form.startDate, endDate: form.endDate,
       dailyRate: Number(form.dailyRate), status: form.status,
     };
-    if (editId) updateEmployee(editId, data);
-    else addEmployee(data);
-    toast.success(editId ? 'Employee updated ✓' : 'Employee added ✓');
+    updateEmployee(editId, data);
+
+    // Sync shifts from old form: delete existing, regenerate if project+dates present
+    const existingShifts = shifts.filter(s => s.employeeId === data.id);
+    existingShifts.forEach(s => deleteShiftById(s.id));
+    if (data.assignedProject && data.assignedProject !== '' && data.assignedProject !== 'none' && data.startDate && data.endDate) {
+      const newShifts = generateShiftsFromEmployee(data);
+      newShifts.forEach(s => addShift(s));
+    }
+
+    toast.success('Employee updated ✓');
     setModalOpen(false);
   };
 
@@ -88,18 +100,19 @@ const EmployeesPage = () => {
 
   const totalEmp = employees.length;
   const active = employees.filter(e => e.status === 'Active').length;
+  const inactive = employees.filter(e => e.status === 'Inactive').length;
   const onLeave = employees.filter(e => e.status === 'On Leave').length;
 
   const selectClasses = "border-[1.5px] border-border rounded-lg px-3 py-2 text-sm bg-card focus:border-blue focus:outline focus:outline-[3px] focus:outline-blue/20";
 
   return (
     <AppLayout>
-      <PageHeader title="Employee Planner" subtitle="Track crew assignments across projects"
-        action={<button onClick={openAdd} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2"><Plus size={16} /> Add Employee</button>} />
+      <PageHeader title="Employee Planner" subtitle="Track crew assignments across projects" />
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <SummaryCard label="Total Employees" value={totalEmp} icon={Users} iconBg="#EAF5F5" iconColor="#009A93" />
         <SummaryCard label="Active" value={active} icon={UserCheck} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
+        <SummaryCard label="Inactive" value={inactive} icon={UserX} iconBg="#f3f4f6" iconColor="#6b7280" valueColor="#6b7280" />
         <SummaryCard label="On Leave" value={onLeave} icon={Coffee} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
       </div>
 
@@ -116,7 +129,7 @@ const EmployeesPage = () => {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</span>
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className={selectClasses}>
-            <option>All</option><option>Active</option><option>On Leave</option><option>Completed</option>
+            <option>All</option><option>Active</option><option>Inactive</option><option>On Leave</option><option>Completed</option>
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -132,7 +145,6 @@ const EmployeesPage = () => {
           <div className="flex flex-col items-center justify-center py-20">
             <Users size={48} className="text-border mb-3" />
             <p className="text-muted-foreground mb-4">No employees found</p>
-            <button onClick={openAdd} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm">+ Add Employee</button>
           </div>
         ) : (
           <>
@@ -176,13 +188,15 @@ const EmployeesPage = () => {
         )}
       </div>
 
+      <SchedulerSection />
+
       {/* Modal */}
       {modalOpen && (
         <>
           <div className="fixed inset-0 bg-foreground/30 z-50" onClick={() => setModalOpen(false)} />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[520px] bg-card rounded-2xl shadow-2xl z-50 max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-border flex justify-between items-center">
-              <h2 className="text-xl font-bold">{editId ? 'Edit Employee' : 'Add Employee'}</h2>
+              <h2 className="text-xl font-bold">Edit Employee</h2>
               <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
@@ -202,7 +216,7 @@ const EmployeesPage = () => {
                 <div><label className="label-uppercase block mb-1.5">End Date</label><input type="date" className={inputCls('endDate')} value={form.endDate} onChange={e => set('endDate', e.target.value)} /></div>
               </div>
               <div><label className="label-uppercase block mb-1.5">Daily Rate EUR *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span><input type="number" min={0} className={`${inputCls('dailyRate')} pl-7`} value={form.dailyRate} onChange={e => set('dailyRate', e.target.value)} /></div>{errors.dailyRate && <p className="text-destructive text-xs mt-1">{errors.dailyRate}</p>}</div>
-              <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>On Leave</option><option>Completed</option></select></div>
+              <div><label className="label-uppercase block mb-1.5">Status *</label><select className={inputCls('status')} value={form.status} onChange={e => set('status', e.target.value)}><option>Active</option><option>Inactive</option><option>On Leave</option><option>Completed</option></select></div>
             </div>
             <div className="p-6 pt-0 flex justify-between">
               <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>

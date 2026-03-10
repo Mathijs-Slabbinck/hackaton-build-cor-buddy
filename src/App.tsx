@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CORProvider } from "@/contexts/CORContext";
 import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { StockProvider } from "@/contexts/StockContext";
+import { ShiftProvider } from "@/contexts/ShiftContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
@@ -26,6 +27,7 @@ const App = () => {
         <Sonner position="top-right" />
         <CORProvider>
           <EmployeeProvider>
+            <ShiftProvider>
             <StockProvider>
               <ProjectProvider>
                 <BrowserRouter>
@@ -42,6 +44,7 @@ const App = () => {
                 </BrowserRouter>
               </ProjectProvider>
             </StockProvider>
+            </ShiftProvider>
           </EmployeeProvider>
         </CORProvider>
       </TooltipProvider>
