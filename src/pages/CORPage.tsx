@@ -246,7 +246,7 @@ const CORPage = () => {
                     {paged.map((c, i) => {
                       const imgCount = c.pictureUrls.length;
                       const fileCount = c.fileUrls.length;
-                      const isExternal = activeTab === 'assigned';
+                      const isExternal = false;
                       const sharedUsers = (c.sharedWith || []).map(uid => USERS.find(u => u.id === uid)).filter(Boolean);
                       return (
                         <tr key={c.id} onClick={() => openDetail(c.id, isExternal)}
