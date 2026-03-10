@@ -250,13 +250,6 @@ const CORPage = () => {
                       return (
                         <tr key={c.id} onClick={() => openDetail(c.id, false)}
                           className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
-                          {isExternal && (
-                            <td className="px-4 py-3">
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                {getCompanyName(c.companyId)}
-                              </span>
-                            </td>
-                          )}
                           <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
                           <td className="px-4 py-3 font-medium">{c.corName}</td>
                           <td className="px-4 py-3">
