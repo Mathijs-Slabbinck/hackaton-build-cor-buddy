@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon, Eye, Share2, Download } from 'lucide-react';
+import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon, Download } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatEUR, formatDate, PaidBar } from '@/components/SharedUI';
 import { useCOR } from '@/contexts/CORContext';
-import { useAuth, canAccessCOR, getCompanyName, USERS } from '@/contexts/AuthContext';
+import { useAuth, getCompanyName, USERS } from '@/contexts/AuthContext';
 import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -29,7 +29,7 @@ const CORPage = () => {
   const [typeFilter, setTypeFilter] = useState('All');
   const [clientFilter, setClientFilter] = useState('All');
   const [page, setPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'my' | 'assigned'>('my');
+  
 
   // Own company CORs
   const companyCors = useMemo(() =>
@@ -37,16 +37,8 @@ const CORPage = () => {
     [cors, session]
   );
 
-  // Externally shared CORs (from other companies)
-  const assignedCors = useMemo(() => {
-    if (!session) return [];
-    return cors.filter(c => c.companyId !== session.companyId && canAccessCOR(c, session));
-  }, [cors, session]);
-
-  const activeCors = activeTab === 'my' ? companyCors : assignedCors;
-
   const filtered = useMemo(() => {
-    return activeCors.filter(c => {
+    return companyCors.filter(c => {
       const q = search.toLowerCase();
       if (q && !c.corName.toLowerCase().includes(q) && !c.clientName.toLowerCase().includes(q) && !c.location.toLowerCase().includes(q)) return false;
       if (statusFilter !== 'All' && c.status !== statusFilter) return false;
@@ -54,7 +46,7 @@ const CORPage = () => {
       if (clientFilter !== 'All' && c.clientKind !== clientFilter) return false;
       return true;
     });
-  }, [activeCors, search, statusFilter, typeFilter, clientFilter]);
+  }, [companyCors, search, statusFilter, typeFilter, clientFilter]);
 
   const pageSize = 10;
   const totalPages = Math.ceil(filtered.length / pageSize);
@@ -139,77 +131,54 @@ const CORPage = () => {
         action={
           <div className="flex items-center gap-2">
             {exportButton}
-            {activeTab === 'my' && (
-              <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-                <Plus size={16} /> New COR
-              </button>
-            )}
+            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+              <Plus size={16} /> New COR
+            </button>
           </div>
         }
       />
 
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-border mb-6">
-        <button onClick={() => { setActiveTab('my'); setPage(0); }}
-          className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'my' ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-          My CORs
-        </button>
-        <button onClick={() => { setActiveTab('assigned'); setPage(0); }}
-          className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors relative ${activeTab === 'assigned' ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-          Assigned to Me
-          {assignedCors.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#EC008C' }}>
-              {assignedCors.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {activeTab === 'my' && (
-        <>
-          {/* Row 1: Stats (60%) + Pie Chart (40%) */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            <div className="col-span-3 grid grid-cols-2 gap-4">
-              <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
-              <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
-              <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
-              <SummaryCard label="Total Value (EUR)" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
-            </div>
-            <div className="col-span-2 card-cor p-5 flex flex-col">
-              <h3 className="font-bold text-base mb-2">Status Overview</h3>
-              {pieData.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 flex-1 flex items-center justify-center">No records yet</p>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <ResponsiveContainer width="100%" height={130}>
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                        {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-around mt-2">
-                    {[
-                      { label: 'Paid', count: paid, color: '#009A93' },
-                      { label: 'Ongoing', count: ongoing, color: '#856A00' },
-                      { label: 'Cancelled', count: cancelled, color: '#EC008C' },
-                    ].map(s => (
-                      <div key={s.label} className="text-center">
-                        <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                          <span className="w-2 h-2 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
-                          <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">{s.label}</span>
-                        </div>
-                        <p className="text-lg font-bold" style={{ color: s.color }}>{s.count}</p>
-                      </div>
-                    ))}
+      {/* Row 1: Stats (60%) + Pie Chart (40%) */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="col-span-3 grid grid-cols-2 gap-4">
+          <SummaryCard label="Total CORs" value={totalCors} icon={FileText} iconBg="#EAF5F5" iconColor="#009A93" />
+          <SummaryCard label="Ongoing" value={ongoing} icon={Clock} iconBg="#fffded" iconColor="#856A00" valueColor="#856A00" />
+          <SummaryCard label="Paid" value={paid} icon={CheckCircle} iconBg="#EAF5F5" iconColor="#009A93" valueColor="#009A93" />
+          <SummaryCard label="Total Value (EUR)" value={formatEUR(totalValue)} icon={DollarSign} iconBg="#EEF9FD" iconColor="#44C8F5" />
+        </div>
+        <div className="col-span-2 card-cor p-5 flex flex-col">
+          <h3 className="font-bold text-base mb-2">Status Overview</h3>
+          {pieData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 flex-1 flex items-center justify-center">No records yet</p>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center">
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {pieData.map(entry => <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-around mt-2">
+                {[
+                  { label: 'Paid', count: paid, color: '#009A93' },
+                  { label: 'Ongoing', count: ongoing, color: '#856A00' },
+                  { label: 'Cancelled', count: cancelled, color: '#EC008C' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: PIE_COLORS[s.label as keyof typeof PIE_COLORS] }} />
+                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">{s.label}</span>
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: s.color }}>{s.count}</p>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -245,20 +214,11 @@ const CORPage = () => {
       <div className="card-cor overflow-hidden">
         {paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
-            {activeTab === 'assigned' ? (
-              <>
-                <Share2 size={48} className="text-border mb-3" />
-                <p className="text-muted-foreground">No CORs have been shared with you.</p>
-              </>
-            ) : (
-              <>
-                <FileText size={48} className="text-border mb-3" />
-                <p className="text-muted-foreground mb-4">No CORs found</p>
-                <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-                  <Plus size={16} /> New COR
-                </button>
-              </>
-            )}
+            <FileText size={48} className="text-border mb-3" />
+            <p className="text-muted-foreground mb-4">No CORs found</p>
+            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+              <Plus size={16} /> New COR
+            </button>
           </div>
         ) : (
           <>
@@ -266,7 +226,7 @@ const CORPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="table-header">
-                    {activeTab === 'assigned' && <th className="text-left px-4 py-3">From</th>}
+                    
                     <th className="text-left px-4 py-3">COR #</th>
                     <th className="text-left px-4 py-3">COR Name</th>
                     <th className="text-left px-4 py-3">Client</th>
@@ -276,7 +236,7 @@ const CORPage = () => {
                     <th className="text-left px-4 py-3">Total (EUR)</th>
                     <th className="text-left px-4 py-3">Paid %</th>
                     <th className="text-left px-4 py-3"><span className="flex items-center gap-1"><Paperclip size={12} />Attach.</span></th>
-                    {activeTab === 'my' && <th className="text-left px-4 py-3">Shared</th>}
+                    <th className="text-left px-4 py-3">Shared</th>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Actions</th>
                   </tr>
@@ -286,18 +246,10 @@ const CORPage = () => {
                     {paged.map((c, i) => {
                       const imgCount = c.pictureUrls.length;
                       const fileCount = c.fileUrls.length;
-                      const isExternal = activeTab === 'assigned';
                       const sharedUsers = (c.sharedWith || []).map(uid => USERS.find(u => u.id === uid)).filter(Boolean);
                       return (
-                        <tr key={c.id} onClick={() => openDetail(c.id, isExternal)}
+                        <tr key={c.id} onClick={() => openDetail(c.id, false)}
                           className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
-                          {isExternal && (
-                            <td className="px-4 py-3">
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                {getCompanyName(c.companyId)}
-                              </span>
-                            </td>
-                          )}
                           <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{c.corNumber}</td>
                           <td className="px-4 py-3 font-medium">{c.corName}</td>
                           <td className="px-4 py-3">
@@ -326,8 +278,7 @@ const CORPage = () => {
                               </div>
                             )}
                           </td>
-                          {activeTab === 'my' && (
-                            <td className="px-4 py-3">
+                          <td className="px-4 py-3">
                               {sharedUsers.length === 0 ? (
                                 <span className="text-muted-foreground">—</span>
                               ) : (
@@ -359,17 +310,12 @@ const CORPage = () => {
                                 </div>
                               )}
                             </td>
-                          )}
                           <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                           <td className="px-4 py-3">
-                            {isExternal ? (
-                              <button onClick={e => { e.stopPropagation(); openDetail(c.id, true); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Eye size={14} /></button>
-                            ) : (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={e => { e.stopPropagation(); openDetail(c.id, false); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
-                                <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={e => { e.stopPropagation(); openDetail(c.id, false); }} className="p-1.5 rounded-md hover:bg-border transition-colors"><Pencil size={14} /></button>
+                              <button onClick={e => { e.stopPropagation(); setDeleteId(c.id); }} className="p-1.5 rounded-md hover:bg-red-100 text-destructive transition-colors"><Trash2 size={14} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
