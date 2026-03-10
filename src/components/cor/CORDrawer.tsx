@@ -22,6 +22,7 @@ const segments = (options: string[], value: string, onChange: (v: string) => voi
 const CORDrawer = ({ onClose }: Props) => {
   const { cors, addCOR } = useCOR();
   const { projects } = useProjects();
+  const { currentUser } = useAuth();
   const [form, setForm] = useState({
     corName: '', corNumber: '', corDate: new Date().toISOString().split('T')[0],
     status: 'Ongoing' as COR['status'], clientKind: 'Company' as COR['clientKind'],
