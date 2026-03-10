@@ -32,16 +32,14 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const [extracting, setExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<Record<string, string> | null>(null);
   const [extractEditable, setExtractEditable] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [autoStatusNote, setAutoStatusNote] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
   useBodyScrollLock(true);
 
-  if (!cor) return null;
+  const cor = getCORById(corId);
 
-  const total = cor.price + cor.price * cor.vat / 100;
+  if (!cor) return null;
 
   const startEdit = () => {
     const amountPaid = cor.paidPercentage / 100 * (cor.price + cor.price * cor.vat / 100);
