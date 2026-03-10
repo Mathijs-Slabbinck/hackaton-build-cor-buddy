@@ -212,6 +212,7 @@ export default function WeekCalendar({
                       key={shift.id}
                       shift={shift}
                       employeeName={emp?.fullName || 'Unknown'}
+                      employeeStatus={emp?.status}
                       onClick={onShiftClick}
                       onResize={onShiftResize}
                       style={{ left: pos.left, width: pos.width }}

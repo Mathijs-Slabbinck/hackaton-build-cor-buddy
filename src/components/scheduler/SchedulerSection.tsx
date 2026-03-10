@@ -29,6 +29,7 @@ export default function SchedulerSection() {
   const [isNewShift, setIsNewShift] = useState(false);
 
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<import('@/contexts/EmployeeContext').Employee | null>(null);
 
   const weekShifts = useMemo(() => getShiftsForWeek(weekStart), [getShiftsForWeek, weekStart]);
 
@@ -128,7 +129,8 @@ export default function SchedulerSection() {
       <div className="card-cor flex overflow-hidden" style={{ minHeight: '500px' }}>
         <EmployeeSidebar
           employees={employees}
-          onAddEmployee={() => setAddEmployeeOpen(true)}
+          onAddEmployee={() => { setEditingEmployee(null); setAddEmployeeOpen(true); }}
+          onEditEmployee={(emp) => { setEditingEmployee(emp); setAddEmployeeOpen(true); }}
           onDeleteEmployee={handleDeleteEmployee}
         />
         <WeekCalendar
@@ -156,6 +158,7 @@ export default function SchedulerSection() {
       <AddEmployeeDialog
         open={addEmployeeOpen}
         onOpenChange={setAddEmployeeOpen}
+        editEmployee={editingEmployee}
       />
     </div>
   );

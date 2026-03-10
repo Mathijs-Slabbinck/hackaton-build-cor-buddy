@@ -6,10 +6,10 @@ const PALETTE_BG = [
   'bg-emerald-200 border-emerald-400 text-emerald-900',
   'bg-purple-200 border-purple-400 text-purple-900',
   'bg-orange-200 border-orange-400 text-orange-900',
-  'bg-pink-200 border-pink-400 text-pink-900',
   'bg-teal-200 border-teal-400 text-teal-900',
   'bg-amber-200 border-amber-400 text-amber-900',
   'bg-indigo-200 border-indigo-400 text-indigo-900',
+  'bg-cyan-200 border-cyan-400 text-cyan-900',
 ];
 
 const PALETTE_DOT = [
@@ -17,11 +17,14 @@ const PALETTE_DOT = [
   'bg-emerald-500',
   'bg-purple-500',
   'bg-orange-500',
-  'bg-pink-500',
   'bg-teal-500',
   'bg-amber-500',
   'bg-indigo-500',
+  'bg-cyan-500',
 ];
+
+const ON_LEAVE_BG = 'bg-red-200 border-red-400 text-red-900';
+const ON_LEAVE_DOT = 'bg-red-500';
 
 export function hashToIndex(str: string): number {
   let hash = 0;
@@ -32,8 +35,14 @@ export function hashToIndex(str: string): number {
   return Math.abs(hash) % PALETTE_BG.length;
 }
 
-export function getEmployeeDotColor(employeeId: string): string {
+export function getEmployeeDotColor(employeeId: string, status?: string): string {
+  if (status === 'On Leave') return ON_LEAVE_DOT;
   return PALETTE_DOT[hashToIndex(employeeId)];
+}
+
+export function getEmployeeBlockColor(employeeId: string, status?: string): string {
+  if (status === 'On Leave') return ON_LEAVE_BG;
+  return PALETTE_BG[hashToIndex(employeeId)];
 }
 
 function timeToHour(time: string): number {
@@ -44,6 +53,7 @@ function timeToHour(time: string): number {
 interface ShiftBlockProps {
   shift: Shift;
   employeeName: string;
+  employeeStatus?: string;
   onClick: (shift: Shift) => void;
   onResize: (shiftId: string, newEndTime: string) => void;
   style?: React.CSSProperties;
@@ -51,7 +61,7 @@ interface ShiftBlockProps {
 
 const HOUR_HEIGHT = 60;
 
-export default function ShiftBlock({ shift, employeeName, onClick, onResize, style }: ShiftBlockProps) {
+export default function ShiftBlock({ shift, employeeName, employeeStatus, onClick, onResize, style }: ShiftBlockProps) {
   const resizing = useRef(false);
   const startY = useRef(0);
   const startHour = useRef(0);
@@ -61,7 +71,7 @@ export default function ShiftBlock({ shift, employeeName, onClick, onResize, sty
   const top = startHourVal * HOUR_HEIGHT;
   const height = Math.max((endHourVal - startHourVal) * HOUR_HEIGHT, HOUR_HEIGHT / 2);
 
-  const colorClass = PALETTE_BG[hashToIndex(shift.employeeId)];
+  const colorClass = getEmployeeBlockColor(shift.employeeId, employeeStatus);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2, Pencil } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Employee } from '@/contexts/EmployeeContext';
@@ -8,10 +8,11 @@ import { getEmployeeDotColor } from './ShiftBlock';
 interface EmployeeSidebarProps {
   employees: Employee[];
   onAddEmployee: () => void;
+  onEditEmployee: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
 }
 
-export default function EmployeeSidebar({ employees, onAddEmployee, onDeleteEmployee }: EmployeeSidebarProps) {
+export default function EmployeeSidebar({ employees, onAddEmployee, onEditEmployee, onDeleteEmployee }: EmployeeSidebarProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -69,11 +70,17 @@ export default function EmployeeSidebar({ employees, onAddEmployee, onDeleteEmpl
               }}
               className="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent cursor-grab active:cursor-grabbing transition-colors"
             >
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getEmployeeDotColor(emp.id)}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getEmployeeDotColor(emp.id, emp.status)}`} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium truncate">{emp.fullName}</div>
                 <div className="text-[10px] text-muted-foreground truncate">{emp.role}</div>
               </div>
+              <button
+                onClick={e => { e.stopPropagation(); onEditEmployee(emp); }}
+                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+              >
+                <Pencil size={13} />
+              </button>
               <button
                 onClick={e => { e.stopPropagation(); setDeleteId(emp.id); }}
                 className="p-1 rounded-md hover:bg-red-100 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"

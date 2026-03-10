@@ -83,18 +83,21 @@ export const ShiftProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
-  const persist = useCallback((next: Shift[]) => {
-    setShifts(next);
-    localStorage.setItem(KEY, JSON.stringify(next));
+  const persistFn = useCallback((updater: (prev: Shift[]) => Shift[]) => {
+    setShifts(prev => {
+      const next = updater(prev);
+      localStorage.setItem(KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
-  const addShift = useCallback((s: Shift) => persist([s, ...shifts]), [shifts, persist]);
+  const addShift = useCallback((s: Shift) => persistFn(prev => [s, ...prev]), [persistFn]);
 
   const updateShift = useCallback((id: string, updates: Partial<Shift>) =>
-    persist(shifts.map(s => s.id === id ? { ...s, ...updates } : s)), [shifts, persist]);
+    persistFn(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s)), [persistFn]);
 
   const deleteShift = useCallback((id: string) =>
-    persist(shifts.filter(s => s.id !== id)), [shifts, persist]);
+    persistFn(prev => prev.filter(s => s.id !== id)), [persistFn]);
 
   const getShiftsForEmployee = useCallback((employeeId: string) =>
     shifts.filter(s => s.employeeId === employeeId), [shifts]);
