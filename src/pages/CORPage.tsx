@@ -37,14 +37,6 @@ const CORPage = () => {
     [cors, session]
   );
 
-  // Externally shared CORs (from other companies)
-  const assignedCors = useMemo(() => {
-    if (!session) return [];
-    return cors.filter(c => c.companyId !== session.companyId && canAccessCOR(c, session));
-  }, [cors, session]);
-
-  const activeCors = activeTab === 'my' ? companyCors : assignedCors;
-
   const filtered = useMemo(() => {
     return activeCors.filter(c => {
       const q = search.toLowerCase();
