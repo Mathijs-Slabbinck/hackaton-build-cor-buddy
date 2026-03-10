@@ -38,7 +38,7 @@ const CORPage = () => {
   );
 
   const filtered = useMemo(() => {
-    return activeCors.filter(c => {
+    return companyCors.filter(c => {
       const q = search.toLowerCase();
       if (q && !c.corName.toLowerCase().includes(q) && !c.clientName.toLowerCase().includes(q) && !c.location.toLowerCase().includes(q)) return false;
       if (statusFilter !== 'All' && c.status !== statusFilter) return false;
