@@ -5,7 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
 import { StatusBadge, formatEUR, formatDate, PaidBar } from '@/components/SharedUI';
 import { useCOR } from '@/contexts/CORContext';
-import { useAuth, canAccessCOR, getCompanyName, USERS } from '@/contexts/AuthContext';
+import { useAuth, getCompanyName, USERS } from '@/contexts/AuthContext';
 import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
