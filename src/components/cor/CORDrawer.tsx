@@ -90,6 +90,8 @@ const CORDrawer = ({ onClose }: Props) => {
       paidPercentage: Math.round(paidPct * 10) / 10,
       pictureUrls: [], fileUrls: [],
       activityLog: [makeEntry('created', 'COR created')],
+      companyId: currentUser?.companyId || 'company-alpha',
+      assignedExternalManagers: [],
     };
     addCOR(cor);
     toast.success('COR saved successfully ✓');
