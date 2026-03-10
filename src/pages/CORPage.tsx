@@ -286,8 +286,7 @@ const CORPage = () => {
                               </div>
                             )}
                           </td>
-                          {activeTab === 'my' && (
-                            <td className="px-4 py-3">
+                          <td className="px-4 py-3">
                               {sharedUsers.length === 0 ? (
                                 <span className="text-muted-foreground">—</span>
                               ) : (
@@ -319,7 +318,6 @@ const CORPage = () => {
                                 </div>
                               )}
                             </td>
-                          )}
                           <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                           <td className="px-4 py-3">
                             {isExternal ? (
