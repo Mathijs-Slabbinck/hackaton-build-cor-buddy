@@ -29,6 +29,9 @@ const SEED: Employee[] = [
   { id: crypto.randomUUID(), fullName: "Priya Kapoor", role: "Carpenter", email: "priya.k@tradeco.com.au", phone: "0445 678 901", assignedProject: "Harbour View Apartments", startDate: "2023-10-01", endDate: "2024-01-31", dailyRate: 390, status: "Completed", companyId: "c1" },
   // Company c2 seed
   { id: crypto.randomUUID(), fullName: "Derek Walsh", role: "Electrician", email: "derek.w@betaelec.com.au", phone: "0411 222 333", assignedProject: "Westfield Substation Upgrade", startDate: "2024-03-01", endDate: "2024-09-30", dailyRate: 510, status: "Active", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Anika Petrova", role: "HVAC Tech", email: "anika.p@betaelec.com.au", phone: "0422 333 444", assignedProject: "Parramatta Data Centre Fit-out", startDate: "2024-05-01", endDate: "", dailyRate: 490, status: "Active", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Marcus Obi", role: "Electrician", email: "marcus.o@betaelec.com.au", phone: "0433 444 555", assignedProject: "Bondi Beach Surf Club Rewire", startDate: "2024-02-12", endDate: "2024-05-30", dailyRate: 460, status: "Completed", companyId: "c2" },
+  { id: crypto.randomUUID(), fullName: "Tina Beaumont", role: "Site Manager", email: "tina.b@betaelec.com.au", phone: "0444 555 666", assignedProject: "Westfield Substation Upgrade", startDate: "2024-03-01", endDate: "", dailyRate: 580, status: "Active", companyId: "c2" },
 ];
 
 const KEY = "cortrack_employees";
