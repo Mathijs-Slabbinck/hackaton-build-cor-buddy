@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp, Users as UsersIcon, UserPlus } from 'lucide-react';
-import { useCOR, type COR, type FieldDiff, type AssignedExternal, makeEntry } from '@/contexts/CORContext';
+import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { useCOR, type COR, type FieldDiff, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, USERS, COMPANIES, getCompanyName, getUserInitials } from '@/contexts/AuthContext';
 import { StatusBadge, formatEUR, formatDate, PaidBar, relativeTime } from '@/components/SharedUI';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-interface Props { corId: string; onClose: () => void; onDelete: (id: string) => void; }
+interface Props { corId: string; onClose: () => void; onDelete: (id: string) => void; readOnly?: boolean; }
 
 const segments = (options: string[], value: string, onChange: (v: string) => void) => (
   <div className="flex border border-border rounded-lg overflow-hidden">
@@ -72,12 +73,12 @@ const computeDiff = (oldCor: COR, newForm: Record<string, any>): FieldDiff[] => 
   return diffs;
 };
 
-const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
+const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) => {
   const { getCORById, updateCOR, deleteCOR } = useCOR();
   const { items: stockItems } = useStock();
   const { projects } = useProjects();
-  const { currentUser, users, companies, getUserById, getCompanyById, isOwner, isManager } = useAuth();
-  const [tab, setTab] = useState<'details' | 'files' | 'access' | 'activity'>('details');
+  const { session } = useAuth();
+  const [tab, setTab] = useState<'details' | 'files' | 'activity'>('details');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<COR> & { amountPaid?: number }>({});
   const [extracting, setExtracting] = useState(false);
@@ -87,10 +88,8 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const [autoStatusNote, setAutoStatusNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [removeAccessId, setRemoveAccessId] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUserId, setShareUserId] = useState('');
   const imgRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +118,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
   const activityLog = cor.activityLog || [];
 
   const startEdit = () => {
+    if (readOnly) return;
     const amountPaid = cor.paidPercentage / 100 * total;
     setForm({ ...cor, amountPaid });
     setEditing(true);
@@ -321,7 +321,11 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     if (!noteText.trim()) return;
     const currentCor = getCORById(corId);
     if (!currentCor) return;
-    const newLog = [...(currentCor.activityLog || []), makeEntry('note_added', noteText.trim())];
+    const entry = makeEntry('note_added', noteText.trim());
+    if (readOnly && session) {
+      entry.actor = `${session.fullName} (external — ${session.companyName})`;
+    }
+    const newLog = [...(currentCor.activityLog || []), entry];
     updateCOR(corId, { activityLog: newLog });
     setNoteText('');
   };
@@ -334,61 +338,45 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
     });
   };
 
-  // Access tab logic
-  const canManageAccess = isOwner() || isManager();
-  const assignedExternals = cor.assignedExternalManagers || [];
-  const otherCompanies = companies.filter(c => c.id !== currentUser?.companyId);
-  const selectedCompanyUsers = selectedCompanyId
-    ? users.filter(u => u.companyId === selectedCompanyId && (u.role === 'manager' || u.role === 'owner' || u.role === 'external_manager') && u.isActive)
-    : [];
-  const selectedUser = selectedUserId ? getUserById(selectedUserId) : undefined;
-  const selectedCompany = selectedCompanyId ? getCompanyById(selectedCompanyId) : undefined;
-  const isAlreadyAssigned = (userId: string) => assignedExternals.some(a => a.userId === userId);
+  // Sharing logic
+  const sharedWith = cor.sharedWith || [];
+  const externalUsers = USERS.filter(u => u.id !== session?.userId && u.companyId !== session?.companyId);
+  const shareableUsers = externalUsers.filter(u => !sharedWith.includes(u.id));
 
-  const handleAssignExternal = () => {
-    if (!selectedUserId || !selectedCompanyId || !currentUser) return;
+  const handleShare = () => {
+    if (!shareUserId) return;
     const currentCor = getCORById(corId);
     if (!currentCor) return;
-    const user = getUserById(selectedUserId);
-    const comp = getCompanyById(selectedCompanyId);
-    
-    const newAssignment: AssignedExternal = {
-      userId: selectedUserId,
-      companyId: selectedCompanyId,
-      assignedAt: new Date().toISOString(),
-      assignedBy: currentUser.id,
-    };
-    
-    const newExternals = [...(currentCor.assignedExternalManagers || []), newAssignment];
-    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `${user?.fullName || 'User'} from ${comp?.companyName || 'company'} granted external reviewer access`)];
-    updateCOR(corId, { assignedExternalManagers: newExternals, activityLog: newLog });
-    
+    const user = USERS.find(u => u.id === shareUserId);
+    const newShared = [...(currentCor.sharedWith || []), shareUserId];
+    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `Shared with ${user?.fullName || 'user'} (${getCompanyName(user?.companyId || '')})`)];
+    updateCOR(corId, { sharedWith: newShared, activityLog: newLog });
     toast.success(`${user?.fullName} can now view this record ✓`);
-    setAssignModalOpen(false);
-    setSelectedCompanyId('');
-    setSelectedUserId('');
+    setShareModalOpen(false);
+    setShareUserId('');
   };
 
-  const handleRemoveExternal = (userId: string) => {
+  const handleRemoveShare = (userId: string) => {
     const currentCor = getCORById(corId);
     if (!currentCor) return;
-    const user = getUserById(userId);
-    const ext = assignedExternals.find(a => a.userId === userId);
-    const comp = ext ? getCompanyById(ext.companyId) : undefined;
-    
-    const newExternals = (currentCor.assignedExternalManagers || []).filter(a => a.userId !== userId);
-    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `${user?.fullName || 'User'} from ${comp?.companyName || 'company'} removed as external reviewer`)];
-    updateCOR(corId, { assignedExternalManagers: newExternals, activityLog: newLog });
-    setRemoveAccessId(null);
+    const user = USERS.find(u => u.id === userId);
+    const newShared = (currentCor.sharedWith || []).filter(id => id !== userId);
+    const newLog = [...(currentCor.activityLog || []), makeEntry('updated', `Removed access for ${user?.fullName || 'user'}`)];
+    updateCOR(corId, { sharedWith: newShared, activityLog: newLog });
     toast.success('Access removed');
   };
 
-  const tabs = [
-    { key: 'details', label: 'Details' },
-    { key: 'files', label: 'Files & Images' },
-    { key: 'access', label: 'Access' },
-    { key: 'activity', label: 'Activity' },
-  ] as const;
+  const tabs = readOnly
+    ? [
+        { key: 'details', label: 'Details' },
+        { key: 'files', label: 'Files & Images' },
+        { key: 'activity', label: 'Activity' },
+      ] as const
+    : [
+        { key: 'details', label: 'Details' },
+        { key: 'files', label: 'Files & Images' },
+        { key: 'activity', label: 'Activity' },
+      ] as const;
 
   const sortedLog = [...(cor.activityLog || [])].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -405,11 +393,17 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
             <button onClick={onClose} className="p-1 hover:bg-accent rounded-lg transition-colors"><X size={20} /></button>
           </div>
           <p className="text-[13px] text-muted-foreground mb-4">{cor.corNumber} · Created {formatDate(cor.creationDate)}</p>
+          {readOnly && (
+            <div className="rounded-lg px-3 py-2 mb-3 text-[12px] flex items-center gap-2" style={{ background: 'hsl(56 100% 97%)', border: '1px solid #FFED00' }}>
+              <Lock size={12} className="text-muted-foreground" />
+              Read-only — shared by {getCompanyName(cor.companyId)}
+            </div>
+          )}
           <div className="flex gap-0">
             {tabs.map(t => (
-              <button key={t.key} onClick={() => { setTab(t.key); setEditing(false); }}
+              <button key={t.key} onClick={() => { setTab(t.key as any); setEditing(false); }}
                 className={`px-4 pb-3 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? 'border-primary text-primary font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                {t.key === 'access' ? <span className="flex items-center gap-1"><UsersIcon size={12} />{t.label}</span> : t.label}
+                {t.label}
               </button>
             ))}
           </div>
@@ -467,11 +461,54 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                 </table>
               )}
 
-              <button onClick={startEdit} className="w-full py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card mt-4">Edit Record</button>
+              {/* Shared With Section */}
+              {!readOnly && (
+                <>
+                  <SectionDivider label="Shared With" />
+                  {sharedWith.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Not shared with anyone</p>
+                  ) : (
+                    <div className="space-y-2 mb-3">
+                      <TooltipProvider>
+                        {sharedWith.map(uid => {
+                          const user = USERS.find(u => u.id === uid);
+                          if (!user) return null;
+                          return (
+                            <div key={uid} className="flex items-center gap-3 p-2 rounded-lg border border-border">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#009A93' }}>
+                                {getUserInitials(uid)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold">{user.fullName}</p>
+                                <p className="text-xs text-muted-foreground">{getCompanyName(user.companyId)}</p>
+                              </div>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${user.role === 'Owner' ? 'bg-[#009A93]' : 'bg-[#44C8F5]'}`}>
+                                {user.role}
+                              </span>
+                              <button onClick={() => handleRemoveShare(uid)} className="text-destructive hover:bg-red-100 p-1 rounded transition-colors">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </TooltipProvider>
+                    </div>
+                  )}
+                  {shareableUsers.length > 0 && (
+                    <button onClick={() => { setShareModalOpen(true); setShareUserId(''); }} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">
+                      <Plus size={14} /> Share with...
+                    </button>
+                  )}
+                </>
+              )}
+
+              {!readOnly && (
+                <button onClick={startEdit} className="w-full py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card mt-4">Edit Record</button>
+              )}
             </div>
           )}
 
-          {tab === 'details' && editing && (
+          {tab === 'details' && editing && !readOnly && (
             <div className="space-y-4">
               {([
                 ['corName', 'COR Name', 'text'], ['corNumber', 'COR Number', 'text'],
@@ -490,7 +527,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                   setForm(f => ({ ...f, projectId: e.target.value, location: proj?.location || f.location || '' }));
                 }}>
                   <option value="">Select a project...</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
+                  {projects.filter(p => p.companyId === session?.companyId).map(p => <option key={p.id} value={p.id}>{p.projectName}</option>)}
                 </select>
               </div>
               <div>
@@ -542,17 +579,24 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                     {cor.pictureUrls.map((url, i) => (
                       <div key={i} className="relative rounded-lg overflow-hidden h-[120px]">
                         <img src={url} alt="" className="w-full h-full object-cover" />
-                        <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">×</button>
+                        {!readOnly && (
+                          <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">×</button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="border-2 border-dashed border-blue rounded-xl p-6 text-center cursor-pointer hover:bg-blue-light/50 transition-colors" onClick={() => imgRef.current?.click()}>
-                  <ImagePlus size={24} className="mx-auto mb-2 text-blue" />
-                  <p className="text-sm font-medium">Drop images here or click to upload</p>
-                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WEBP accepted</p>
-                  <input ref={imgRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
-                </div>
+                {!readOnly && (
+                  <div className="border-2 border-dashed border-blue rounded-xl p-6 text-center cursor-pointer hover:bg-blue-light/50 transition-colors" onClick={() => imgRef.current?.click()}>
+                    <ImagePlus size={24} className="mx-auto mb-2 text-blue" />
+                    <p className="text-sm font-medium">Drop images here or click to upload</p>
+                    <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WEBP accepted</p>
+                    <input ref={imgRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
+                  </div>
+                )}
+                {readOnly && cor.pictureUrls.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No images attached.</p>
+                )}
               </div>
 
               <div>
@@ -565,111 +609,78 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
                         <span className="text-sm truncate max-w-[200px]">Document-{i + 1}.pdf</span>
                         <span className="text-xs text-muted-foreground ml-auto">{Math.round(url.length * 0.75 / 1024)}KB</span>
                         <a href={url} download className="text-primary hover:underline text-xs"><Download size={14} /></a>
-                        <button onClick={() => removeFile(i)} className="text-destructive"><X size={14} /></button>
+                        {!readOnly && <button onClick={() => removeFile(i)} className="text-destructive"><X size={14} /></button>}
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => docRef.current?.click()}>
-                  <Upload size={24} className="mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">Drop PDF here or click to upload</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF only</p>
-                  <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={handleDocUpload} />
-                </div>
-              </div>
-
-              {/* Extract bill */}
-              <div className="border-l-4 border-blue bg-blue-light rounded-xl p-5">
-                <h3 className="font-bold text-blue mb-1">Extract bill data</h3>
-                <p className="text-sm text-muted-foreground mb-3">Upload a supplier invoice PDF to auto-fill backcharge details from the bill.</p>
-                <button onClick={handleExtract} disabled={extracting} className="w-full bg-blue text-card font-semibold rounded-lg py-2.5 text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
-                  {extracting ? <><Loader2 size={16} className="animate-spin" /> Extracting data...</> : 'Extract from latest PDF'}
-                </button>
-
-                {extractedData && (
-                  <div className="mt-4 bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm">Extracted Bill Data</span>
-                        <span className="bg-accent text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</span>
-                      </div>
-                      <button onClick={() => setExtractEditable(!extractEditable)} className="p-1 hover:bg-accent rounded-md transition-colors">
-                        {extractEditable ? <Lock size={14} /> : <Pencil size={14} />}
-                      </button>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      {[
-                        ['Supplier', 'supplier'],
-                        ['Invoice #', 'invoiceNumber'],
-                        ['Date', 'date'],
-                        ['Amount', 'amount'],
-                        ['Line item', 'lineItem'],
-                      ].map(([label, key]) => (
-                        <div key={key}>
-                          <p className="label-uppercase text-[10px] mb-0.5">{label}</p>
-                          {extractEditable ? (
-                            <input
-                              type={key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text'}
-                              className={inputCls}
-                              value={extractedData[key] || ''}
-                              onChange={e => setExtractedData(prev => prev ? { ...prev, [key]: e.target.value } : prev)}
-                            />
-                          ) : (
-                            <p className="font-medium">{key === 'amount' && extractedData[key] ? `€${Number(extractedData[key]).toFixed(2)}` : key === 'date' && extractedData[key] ? formatDate(extractedData[key]) : extractedData[key] || '—'}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={applyExtracted} className="w-full mt-3 bg-primary text-primary-foreground font-semibold rounded-lg py-2 text-sm hover:bg-[#007A74] transition-colors">Apply to record</button>
+                {!readOnly && (
+                  <div className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => docRef.current?.click()}>
+                    <Upload size={24} className="mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">Drop PDF here or click to upload</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF only</p>
+                    <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={handleDocUpload} />
                   </div>
                 )}
+                {readOnly && cor.fileUrls.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No documents attached.</p>
+                )}
               </div>
-            </div>
-          )}
 
-          {tab === 'access' && (
-            <div>
-              <h3 className="font-bold text-base mb-4">Assigned External Reviewers</h3>
-              
-              {assignedExternals.length === 0 ? (
-                <p className="text-sm text-muted-foreground mb-4">No external reviewers assigned.</p>
-              ) : (
-                <div className="space-y-3 mb-4">
-                  {assignedExternals.map(a => {
-                    const user = getUserById(a.userId);
-                    const comp = getCompanyById(a.companyId);
-                    return (
-                      <div key={a.userId} className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#009A93' }}>
-                          {user?.avatarInitials || '??'}
+              {/* Extract bill — only for own CORs */}
+              {!readOnly && (
+                <div className="border-l-4 border-blue bg-blue-light rounded-xl p-5">
+                  <h3 className="font-bold text-blue mb-1">Extract bill data</h3>
+                  <p className="text-sm text-muted-foreground mb-3">Upload a supplier invoice PDF to auto-fill backcharge details from the bill.</p>
+                  <button onClick={handleExtract} disabled={extracting} className="w-full bg-blue text-card font-semibold rounded-lg py-2.5 text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
+                    {extracting ? <><Loader2 size={16} className="animate-spin" /> Extracting data...</> : 'Extract from latest PDF'}
+                  </button>
+
+                  {extractedData && (
+                    <div className="mt-4 bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm">Extracted Bill Data</span>
+                          <span className="bg-accent text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">{user?.fullName || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{comp?.companyName || 'Unknown company'}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Assigned {relativeTime(a.assignedAt)}</span>
-                        {canManageAccess && (
-                          <button onClick={() => setRemoveAccessId(a.userId)} className="text-destructive hover:bg-red-100 p-1 rounded transition-colors">
-                            <X size={14} />
-                          </button>
-                        )}
+                        <button onClick={() => setExtractEditable(!extractEditable)} className="p-1 hover:bg-accent rounded-md transition-colors">
+                          {extractEditable ? <Lock size={14} /> : <Pencil size={14} />}
+                        </button>
                       </div>
-                    );
-                  })}
+                      <div className="space-y-2 text-sm">
+                        {[
+                          ['Supplier', 'supplier'],
+                          ['Invoice #', 'invoiceNumber'],
+                          ['Date', 'date'],
+                          ['Amount', 'amount'],
+                          ['Line item', 'lineItem'],
+                        ].map(([label, key]) => (
+                          <div key={key}>
+                            <p className="label-uppercase text-[10px] mb-0.5">{label}</p>
+                            {extractEditable ? (
+                              <input
+                                type={key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text'}
+                                className={inputCls}
+                                value={extractedData[key] || ''}
+                                onChange={e => setExtractedData(prev => prev ? { ...prev, [key]: e.target.value } : prev)}
+                              />
+                            ) : (
+                              <p className="font-medium">{key === 'amount' && extractedData[key] ? `€${Number(extractedData[key]).toFixed(2)}` : key === 'date' && extractedData[key] ? formatDate(extractedData[key]) : extractedData[key] || '—'}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={applyExtracted} className="w-full mt-3 bg-primary text-primary-foreground font-semibold rounded-lg py-2 text-sm hover:bg-[#007A74] transition-colors">Apply to record</button>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {canManageAccess && (
-                <button onClick={() => { setAssignModalOpen(true); setSelectedCompanyId(''); setSelectedUserId(''); }} className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">
-                  <UserPlus size={16} /> Assign External Reviewer
-                </button>
               )}
             </div>
           )}
 
           {tab === 'activity' && (
             <div>
-              {/* Add note */}
+              {/* Add note — always available */}
               <div className="flex gap-2 mb-6">
                 <input
                   className={`${inputCls} flex-1`}
@@ -738,97 +749,61 @@ const CORDetailPanel = ({ corId, onClose, onDelete }: Props) => {
           )}
         </div>
 
-        <div className="p-6 pt-4 border-t border-border">
-          {editing ? (
-            <div className="flex justify-between">
-              <button onClick={cancelEdit} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
-              <button onClick={saveEdit} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors">Save Changes</button>
-            </div>
-          ) : (
-            <button onClick={() => setDeleteOpen(true)} className="w-full bg-destructive text-destructive-foreground font-semibold rounded-lg py-2.5 text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-              <Trash2 size={16} /> Delete COR
-            </button>
-          )}
-        </div>
+        {!readOnly && (
+          <div className="p-6 pt-4 border-t border-border">
+            {editing ? (
+              <div className="flex justify-between">
+                <button onClick={cancelEdit} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
+                <button onClick={saveEdit} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors">Save Changes</button>
+              </div>
+            ) : (
+              <button onClick={() => setDeleteOpen(true)} className="w-full bg-destructive text-destructive-foreground font-semibold rounded-lg py-2.5 text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                <Trash2 size={16} /> Delete COR
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Assign External Modal */}
-      {assignModalOpen && (
+      {/* Share Modal */}
+      {shareModalOpen && (
         <>
-          <div className="fixed inset-0 bg-foreground/30 z-[60]" onClick={() => setAssignModalOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[480px] bg-card rounded-2xl shadow-2xl z-[60] max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-foreground/30 z-[60]" onClick={() => setShareModalOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] bg-card rounded-2xl shadow-2xl z-[60] max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-border flex justify-between items-center">
-              <h2 className="text-lg font-bold">Assign External Reviewer</h2>
-              <button onClick={() => setAssignModalOpen(false)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
+              <h2 className="text-lg font-bold">Share COR Access</h2>
+              <button onClick={() => setShareModalOpen(false)} className="p-1 hover:bg-accent rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="label-uppercase block mb-1.5">Responsible company</label>
-                <select className={inputCls} value={selectedCompanyId} onChange={e => { setSelectedCompanyId(e.target.value); setSelectedUserId(''); }}>
-                  <option value="">Select a company...</option>
-                  {otherCompanies.map(c => (
-                    <option key={c.id} value={c.id}>{c.companyName} — {c.industry}</option>
+                <label className="label-uppercase block mb-1.5">Select user</label>
+                <select className={inputCls} value={shareUserId} onChange={e => setShareUserId(e.target.value)}>
+                  <option value="">Choose a user...</option>
+                  {shareableUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.fullName} — {getCompanyName(u.companyId)} ({u.role})</option>
                   ))}
                 </select>
               </div>
-
-              {selectedCompanyId && (
-                <div>
-                  <label className="label-uppercase block mb-1.5">Select manager from {selectedCompany?.companyName}</label>
-                  <div className="space-y-2">
-                    {selectedCompanyUsers.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No eligible users in this company.</p>
+              {shareUserId && (() => {
+                const u = USERS.find(x => x.id === shareUserId);
+                return u ? (
+                  <div className="rounded-[10px] p-3 text-[13px]" style={{ background: 'hsl(56 100% 97%)' }}>
+                    {u.role === 'Manager' ? (
+                      <p><strong>{u.fullName}</strong> and the Owner of <strong>{getCompanyName(u.companyId)}</strong> will be able to view this COR.</p>
                     ) : (
-                      selectedCompanyUsers.map(u => {
-                        const already = isAlreadyAssigned(u.id);
-                        return (
-                          <label key={u.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${already ? 'opacity-50 cursor-not-allowed border-border' : selectedUserId === u.id ? 'border-primary bg-accent' : 'border-border hover:border-primary'}`}>
-                            <input type="radio" name="extUser" value={u.id} checked={selectedUserId === u.id} disabled={already} onChange={() => setSelectedUserId(u.id)} className="sr-only" />
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#009A93' }}>
-                              {u.avatarInitials}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{u.fullName}</p>
-                              {already && <p className="text-xs text-muted-foreground">Already assigned</p>}
-                            </div>
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${u.role === 'owner' ? 'bg-accent text-primary' : 'text-[#44C8F5]'}`} style={u.role !== 'owner' ? { background: '#EEF9FD' } : undefined}>
-                              {u.role === 'owner' ? 'Owner' : u.role === 'manager' ? 'Manager' : 'External'}
-                            </span>
-                          </label>
-                        );
-                      })
+                      <p>Only <strong>{u.fullName}</strong> will be able to view this COR.</p>
                     )}
                   </div>
-                </div>
-              )}
-
-              {selectedUser && !isAlreadyAssigned(selectedUserId) && (
-                <div className="rounded-[10px] p-3 text-[13px]" style={{ background: 'hsl(56 100% 97%)' }}>
-                  <strong>{selectedUser.fullName}</strong> from <strong>{selectedCompany?.companyName}</strong> will be able to view this COR record, all attachments, and add notes. They will not be able to edit any data.
-                </div>
-              )}
+                ) : null;
+              })()}
             </div>
             <div className="p-6 pt-0 flex justify-between">
-              <button onClick={() => setAssignModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
-              <button onClick={handleAssignExternal} disabled={!selectedUserId || isAlreadyAssigned(selectedUserId)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors disabled:opacity-50">Assign Access</button>
+              <button onClick={() => setShareModalOpen(false)} className="px-5 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card">Cancel</button>
+              <button onClick={handleShare} disabled={!shareUserId} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors disabled:opacity-50">Grant Access</button>
             </div>
           </div>
         </>
       )}
-
-      {/* Remove access confirmation */}
-      <AlertDialog open={!!removeAccessId} onOpenChange={open => !open && setRemoveAccessId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove access for {removeAccessId ? getUserById(removeAccessId)?.fullName : ''}?</AlertDialogTitle>
-            <AlertDialogDescription>They will no longer be able to view this COR record.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => removeAccessId && handleRemoveExternal(removeAccessId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

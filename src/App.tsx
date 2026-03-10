@@ -7,7 +7,7 @@ import { CORProvider } from "@/contexts/CORContext";
 import { EmployeeProvider } from "@/contexts/EmployeeContext";
 import { StockProvider } from "@/contexts/StockContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import { OwnerOrManagerRoute, OwnerOnlyRoute, ExternalRoute } from "@/components/ProtectedRoute";
+import ProtectedRoute, { OwnerOnlyRoute } from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import CORPage from "@/pages/CORPage";
 import EmployeesPage from "@/pages/EmployeesPage";
@@ -15,8 +15,6 @@ import StockPage from "@/pages/StockPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import DashboardPage from "@/pages/DashboardPage";
 import UsersPage from "@/pages/UsersPage";
-import MyCorListPage from "@/pages/MyCorListPage";
-import MyCorDetailPage from "@/pages/MyCorDetailPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,23 +22,16 @@ const queryClient = new QueryClient();
 const AppRoutes = () => {
   const { session } = useAuth();
 
-  const homeRedirect = () => {
-    if (!session) return "/login";
-    return session.role === 'external_manager' ? '/my-cors' : '/cor';
-  };
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<Navigate to={homeRedirect()} replace />} />
-      <Route path="/dashboard" element={<OwnerOrManagerRoute><DashboardPage /></OwnerOrManagerRoute>} />
-      <Route path="/cor" element={<OwnerOrManagerRoute><CORPage /></OwnerOrManagerRoute>} />
-      <Route path="/projects" element={<OwnerOrManagerRoute><ProjectsPage /></OwnerOrManagerRoute>} />
-      <Route path="/employees" element={<OwnerOrManagerRoute><EmployeesPage /></OwnerOrManagerRoute>} />
-      <Route path="/stock" element={<OwnerOrManagerRoute><StockPage /></OwnerOrManagerRoute>} />
+      <Route path="/" element={<Navigate to={session ? '/cor' : '/login'} replace />} />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/cor" element={<ProtectedRoute><CORPage /></ProtectedRoute>} />
+      <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+      <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
+      <Route path="/stock" element={<ProtectedRoute><StockPage /></ProtectedRoute>} />
       <Route path="/users" element={<OwnerOnlyRoute><UsersPage /></OwnerOnlyRoute>} />
-      <Route path="/my-cors" element={<ExternalRoute><MyCorListPage /></ExternalRoute>} />
-      <Route path="/my-cors/:corId" element={<ExternalRoute><MyCorDetailPage /></ExternalRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -13,7 +13,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
 
   if (session) {
-    return <Navigate to={session.role === 'external_manager' ? '/my-cors' : '/cor'} replace />;
+    return <Navigate to="/cor" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,12 +23,7 @@ const LoginPage = () => {
     await new Promise(r => setTimeout(r, 400));
     const success = login(username, password);
     if (success) {
-      // Re-read session to determine redirect
-      const rawS = localStorage.getItem('cortrack_session');
-      if (rawS) {
-        const sess = JSON.parse(rawS);
-        navigate(sess.role === 'external_manager' ? '/my-cors' : '/cor');
-      }
+      navigate('/cor');
     } else {
       setError('Invalid username or password');
     }
@@ -85,7 +80,7 @@ const LoginPage = () => {
           <p><strong>admin</strong> / admin — Owner (Alpha Build Group)</p>
           <p><strong>maria</strong> / maria123 — Manager (Alpha Build Group)</p>
           <p><strong>ben</strong> / ben123 — Owner (Beta Electrical Services)</p>
-          <p><strong>sophie</strong> / sophie123 — External Manager (Beta Electrical)</p>
+          <p><strong>sophie</strong> / sophie123 — Manager (Beta Electrical)</p>
         </div>
       </div>
     </div>
