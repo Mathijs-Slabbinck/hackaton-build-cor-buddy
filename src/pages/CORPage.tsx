@@ -138,8 +138,7 @@ const CORPage = () => {
         }
       />
 
-      {activeTab === 'my' && (
-        <>
+      {(
           {/* Row 1: Stats (60%) + Pie Chart (40%) */}
           <div className="grid grid-cols-5 gap-4 mb-6">
             <div className="col-span-3 grid grid-cols-2 gap-4">
