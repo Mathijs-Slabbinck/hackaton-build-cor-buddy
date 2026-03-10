@@ -46,6 +46,7 @@ export default function AddEmployeeDialog({ open, onOpenChange }: AddEmployeeDia
 
     const hasProjectInfo = form.assignedProject && form.assignedProject !== '' && form.startDate && form.endDate;
 
+    const session = JSON.parse(localStorage.getItem('cortrack_session') || '{}');
     const employee: Employee = {
       id: crypto.randomUUID(),
       fullName: form.fullName.trim(),
@@ -57,6 +58,7 @@ export default function AddEmployeeDialog({ open, onOpenChange }: AddEmployeeDia
       endDate: form.endDate || '',
       dailyRate: form.dailyRate ? Number(form.dailyRate) : 0,
       status: hasProjectInfo ? 'Active' : 'Inactive',
+      companyId: session.companyId || 'c1',
     };
 
     addEmployee(employee);

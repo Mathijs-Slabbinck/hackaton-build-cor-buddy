@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Clock, ImagePlus, Upload, FileText, Trash2, Download, Loader2, Pencil, Lock, PlusCircle, Edit, RefreshCw, Scan, CheckCircle, Link, MessageSquare, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { exportSingleJSON, exportSinglePDF } from '@/lib/corExport';
 import { useCOR, type COR, type FieldDiff, makeEntry } from '@/contexts/CORContext';
 import { useStock } from '@/contexts/StockContext';
 import { useProjects } from '@/contexts/ProjectContext';
@@ -757,9 +759,36 @@ const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) =
                 <button onClick={saveEdit} className="bg-primary text-primary-foreground font-semibold rounded-lg px-6 py-2.5 text-sm hover:bg-[#007A74] transition-colors">Save Changes</button>
               </div>
             ) : (
-              <button onClick={() => setDeleteOpen(true)} className="w-full bg-destructive text-destructive-foreground font-semibold rounded-lg py-2.5 text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                <Trash2 size={16} /> Delete COR
-              </button>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="px-4 py-2.5 text-sm font-semibold border-[1.5px] border-border rounded-lg hover:border-primary transition-colors bg-card flex items-center gap-2">
+                      <Download size={16} /> Export
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => {
+                      if (!session) return;
+                      const toastId = toast.loading('Preparing export...');
+                      try { exportSinglePDF(cor, session); toast.dismiss(toastId); toast.success('Exported 1 record as PDF ✓'); }
+                      catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
+                    }} className="gap-2">
+                      <FileText size={14} /> Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      if (!session) return;
+                      const toastId = toast.loading('Preparing export...');
+                      try { exportSingleJSON(cor, session); toast.dismiss(toastId); toast.success('Exported 1 record as JSON ✓'); }
+                      catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
+                    }} className="gap-2">
+                      <span className="text-xs font-mono">{'{ }'}</span> Export as JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <button onClick={() => setDeleteOpen(true)} className="flex-1 bg-destructive text-destructive-foreground font-semibold rounded-lg py-2.5 text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                  <Trash2 size={16} /> Delete COR
+                </button>
+              </div>
             )}
           </div>
         )}

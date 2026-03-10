@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon, Eye, Share2 } from 'lucide-react';
+import { FileText, Clock, CheckCircle, DollarSign, Search, Pencil, Trash2, Plus, Loader2, Paperclip, Image as ImageIcon, Wrench, Package as PackageIcon, Eye, Share2, Download } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import SummaryCard from '@/components/SummaryCard';
@@ -10,8 +10,10 @@ import CORDrawer from '@/components/cor/CORDrawer';
 import CORDetailPanel from '@/components/cor/CORDetailPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { exportBulkJSON, exportBulkPDF } from '@/lib/corExport';
 
 const PIE_COLORS = { Paid: '#009A93', Ongoing: '#FFED00', Cancelled: '#EC008C' };
 
@@ -88,17 +90,61 @@ const CORPage = () => {
     setDetailReadOnly(readOnly);
   };
 
+  const handleExportJSON = () => {
+    if (!session) return;
+    const toastId = toast.loading('Preparing export...');
+    try {
+      const count = exportBulkJSON(filtered, session);
+      toast.dismiss(toastId);
+      toast.success(`Exported ${count} record(s) as JSON ✓`);
+    } catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
+  };
+
+  const handleExportPDF = () => {
+    if (!session) return;
+    const toastId = toast.loading('Preparing export...');
+    try {
+      const count = exportBulkPDF(filtered, session);
+      toast.dismiss(toastId);
+      toast.success(`Exported ${count} record(s) as PDF ✓`);
+    } catch { toast.dismiss(toastId); toast.error('Export failed. Please try again.'); }
+  };
+
+  const exportButton = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={filtered.length === 0}
+          className="font-semibold rounded-lg px-4 py-2.5 text-sm border-[1.5px] border-border hover:border-primary transition-colors bg-card flex items-center gap-2 disabled:opacity-40"
+        >
+          <Download size={16} /> Export
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleExportPDF} className="gap-2">
+          <FileText size={14} /> Export as PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleExportJSON} className="gap-2">
+          <span className="text-xs font-mono">{'{ }'}</span> Export as JSON
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <AppLayout>
       <PageHeader
         title="Change Order Requests"
         subtitle="Manage and track all backcharge records"
         action={
-          activeTab === 'my' ? (
-            <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
-              <Plus size={16} /> New COR
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {exportButton}
+            {activeTab === 'my' && (
+              <button onClick={() => setDrawerOpen(true)} className="bg-primary text-primary-foreground font-semibold rounded-lg px-5 py-2.5 text-sm hover:bg-[#007A74] transition-colors flex items-center gap-2">
+                <Plus size={16} /> New COR
+              </button>
+            )}
+          </div>
         }
       />
 
