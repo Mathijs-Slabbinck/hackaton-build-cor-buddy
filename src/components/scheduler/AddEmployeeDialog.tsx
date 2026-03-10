@@ -18,7 +18,7 @@ interface AddEmployeeDialogProps {
 export default function AddEmployeeDialog({ open, onOpenChange, editEmployee }: AddEmployeeDialogProps) {
   const { projects } = useProjects();
   const { addEmployee, updateEmployee } = useEmployees();
-  const { addShift, deleteShift, getShiftsForEmployee } = useShifts();
+  const { addShift, replaceShiftsForEmployee, getShiftsForEmployee } = useShifts();
 
   const emptyForm = {
     fullName: '', role: '', email: '', phone: '',
@@ -90,14 +90,13 @@ export default function AddEmployeeDialog({ open, onOpenChange, editEmployee }: 
 
       updateEmployee(editEmployee!.id, updates);
 
-      // Re-generate shifts
-      const existingShifts = getShiftsForEmployee(editEmployee!.id);
-      existingShifts.forEach(s => deleteShift(s.id));
-
+      // Re-generate shifts in one atomic operation
       if (hasProjectInfo) {
         const updatedEmp = { ...editEmployee!, ...updates } as Employee;
         const newShifts = generateShiftsFromEmployee(updatedEmp);
-        newShifts.forEach(s => addShift(s));
+        replaceShiftsForEmployee(editEmployee!.id, newShifts);
+      } else {
+        replaceShiftsForEmployee(editEmployee!.id, []);
       }
 
       toast.success('Employee updated');

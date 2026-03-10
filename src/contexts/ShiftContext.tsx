@@ -15,6 +15,7 @@ interface ShiftContextType {
   addShift: (s: Shift) => void;
   updateShift: (id: string, updates: Partial<Shift>) => void;
   deleteShift: (id: string) => void;
+  replaceShiftsForEmployee: (employeeId: string, newShifts: Shift[]) => void;
   getShiftsForEmployee: (employeeId: string) => Shift[];
   getShiftsForWeek: (weekStart: Date) => Shift[];
 }
@@ -99,6 +100,10 @@ export const ShiftProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteShift = useCallback((id: string) =>
     persistFn(prev => prev.filter(s => s.id !== id)), [persistFn]);
 
+  const replaceShiftsForEmployee = useCallback((employeeId: string, newShifts: Shift[]) => {
+    persistFn(prev => [...newShifts, ...prev.filter(s => s.employeeId !== employeeId)]);
+  }, [persistFn]);
+
   const getShiftsForEmployee = useCallback((employeeId: string) =>
     shifts.filter(s => s.employeeId === employeeId), [shifts]);
 
@@ -111,7 +116,7 @@ export const ShiftProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [shifts]);
 
   return (
-    <ShiftContext.Provider value={{ shifts, addShift, updateShift, deleteShift, getShiftsForEmployee, getShiftsForWeek }}>
+    <ShiftContext.Provider value={{ shifts, addShift, updateShift, deleteShift, replaceShiftsForEmployee, getShiftsForEmployee, getShiftsForWeek }}>
       {children}
     </ShiftContext.Provider>
   );

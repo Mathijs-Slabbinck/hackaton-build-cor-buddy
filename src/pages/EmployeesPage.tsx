@@ -20,7 +20,7 @@ const EmployeesPage = () => {
   const { employees, loading, updateEmployee, deleteEmployee } = useEmployees();
   const { projects } = useProjects();
   const { session } = useAuth();
-  const { shifts, addShift, deleteShift: deleteShiftById } = useShifts();
+  const { replaceShiftsForEmployee } = useShifts();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -56,7 +56,11 @@ const EmployeesPage = () => {
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
   const openEdit = (emp: Employee) => {
-    setForm({ ...emp, dailyRate: String(emp.dailyRate) } as any);
+    setForm({
+      ...emp,
+      dailyRate: String(emp.dailyRate),
+      assignedProject: emp.assignedProject === 'none' ? '' : emp.assignedProject,
+    } as any);
     setEditId(emp.id); setErrors({}); setModalOpen(true);
   };
 
@@ -84,12 +88,16 @@ const EmployeesPage = () => {
     };
     updateEmployee(editId, data);
 
-    // Sync shifts from old form: delete existing, regenerate if project+dates present
-    const existingShifts = shifts.filter(s => s.employeeId === data.id);
-    existingShifts.forEach(s => deleteShiftById(s.id));
-    if (data.assignedProject && data.assignedProject !== '' && data.assignedProject !== 'none' && data.startDate && data.endDate) {
+    // Sync shifts: replace all shifts for this employee in one atomic operation
+    const hasProject = data.assignedProject && data.assignedProject !== '' && data.assignedProject !== 'none';
+    if (hasProject && data.startDate && data.endDate) {
       const newShifts = generateShiftsFromEmployee(data);
-      newShifts.forEach(s => addShift(s));
+      replaceShiftsForEmployee(data.id, newShifts);
+    } else {
+      replaceShiftsForEmployee(data.id, []);
+      if (!hasProject) {
+        updateEmployee(editId, { assignedProject: 'none' });
+      }
     }
 
     toast.success('Employee updated ✓');
