@@ -515,7 +515,7 @@ const CORDetailPanel = ({ corId, onClose, onDelete, readOnly = false }: Props) =
               {([
                 ['corName', 'COR Name', 'text'], ['corNumber', 'COR Number', 'text'],
                 ['corDate', 'COR Date', 'date'], ['clientName', 'Client Name', 'text'],
-                ['vatNumber', 'VAT / ABN', 'text'], ['productName', 'Product Name', 'text'],
+                ['vatNumber', 'VAT Number', 'text'], ['productName', 'Product Name', 'text'],
               ] as [keyof COR, string, string][]).map(([key, label, type]) => (
                 <div key={key}>
                   <label className="label-uppercase block mb-1.5">{label}</label>
