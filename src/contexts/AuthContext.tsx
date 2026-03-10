@@ -24,10 +24,10 @@ export interface Session {
 }
 
 export const USERS: HardcodedUser[] = [
-  { id: 'u1', username: 'admin', password: 'admin', fullName: 'Admin User', role: 'Owner', companyId: 'c1' },
-  { id: 'u2', username: 'maria', password: 'maria123', fullName: 'Maria Santos', role: 'Manager', companyId: 'c1' },
-  { id: 'u3', username: 'ben', password: 'ben123', fullName: 'Ben Carter', role: 'Owner', companyId: 'c2' },
-  { id: 'u4', username: 'sophie', password: 'sophie123', fullName: 'Sophie Lin', role: 'Manager', companyId: 'c2' },
+  { id: 'u1', username: 'admin', password: 'admin', fullName: 'Lucas Dubois', role: 'Owner', companyId: 'c1' },
+  { id: 'u2', username: 'maria', password: 'maria123', fullName: 'Marie Lecomte', role: 'Manager', companyId: 'c1' },
+  { id: 'u3', username: 'ben', password: 'ben123', fullName: 'Ben Claes', role: 'Owner', companyId: 'c2' },
+  { id: 'u4', username: 'sophie', password: 'sophie123', fullName: 'Sophie Vermeersch', role: 'Manager', companyId: 'c2' },
 ];
 
 export const COMPANIES: HardcodedCompany[] = [

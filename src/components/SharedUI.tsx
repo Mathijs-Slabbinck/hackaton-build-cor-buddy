@@ -21,7 +21,7 @@ export const formatAUD = formatEUR;
 export const formatDate = (iso: string) => {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 export const PaidBar = ({ pct }: { pct: number }) => (
@@ -43,5 +43,5 @@ export const relativeTime = (iso: string) => {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} hours ago`;
-  return formatDate(iso).replace(/\s/g, ' ') + ' ' + new Date(iso).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+  return formatDate(iso).replace(/\s/g, ' ') + ' ' + new Date(iso).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
 };
