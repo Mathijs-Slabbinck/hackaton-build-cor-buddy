@@ -246,10 +246,9 @@ const CORPage = () => {
                     {paged.map((c, i) => {
                       const imgCount = c.pictureUrls.length;
                       const fileCount = c.fileUrls.length;
-                      const isExternal = false;
                       const sharedUsers = (c.sharedWith || []).map(uid => USERS.find(u => u.id === uid)).filter(Boolean);
                       return (
-                        <tr key={c.id} onClick={() => openDetail(c.id, isExternal)}
+                        <tr key={c.id} onClick={() => openDetail(c.id, false)}
                           className={`group cursor-pointer transition-colors duration-150 hover:bg-accent ${i % 2 === 1 ? 'bg-accent/40' : ''}`}>
                           {isExternal && (
                             <td className="px-4 py-3">
